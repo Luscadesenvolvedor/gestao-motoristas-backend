@@ -1,4 +1,3 @@
-// backend/src/routes/usuarios.js
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { PrismaClient } = require('@prisma/client');
@@ -11,8 +10,16 @@ router.use(autenticar, autorizar('usuarios', 'leitura'));
 
 router.get('/', async (req, res) => {
   const usuarios = await prisma.usuario.findMany({
-    select: { id: true, nome: true, email: true, papel: true, ativo: true, criadoEm: true,
-      auditorias: { orderBy: { criadoEm: 'desc' }, take: 1, include: { usuario: { select: { nome: true } } } }
+    select: {
+      id: true,
+      nome: true,
+      email: true,
+      papel: true,
+      ativo: true,
+      criadoEm: true,
+      auditoriasFeitas: req.usuario.papel === 'admin'
+        ? { orderBy: { criadoEm: 'desc' }, take: 1, include: { usuario: { select: { nome: true } } } }
+        : false
     }
   });
   res.json(usuarios);
