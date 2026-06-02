@@ -1,7 +1,5 @@
-// backend/src/server.js
 require('dotenv').config();
 const express = require('express');
-const cors = require('cors');
 
 const authRoutes = require('./routes/auth');
 const usuariosRoutes = require('./routes/usuarios');
@@ -16,10 +14,14 @@ const tiposRoutes = require('./routes/tipos');
 
 const app = express();
 
-app.use(cors({
-  origin: '*'
-  credentials: false
-}));
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  next();
+});
+
 app.use(express.json());
 app.use('/uploads', express.static('uploads'));
 
