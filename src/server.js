@@ -17,8 +17,8 @@ const tiposRoutes = require('./routes/tipos');
 const app = express();
 
 app.use(cors({
-  origin: process.env.FRONTEND_URL || '*',
-  credentials: true
+  origin: '*'
+  credentials: false
 }));
 app.use(express.json());
 app.use('/uploads', express.static('uploads'));
