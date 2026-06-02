@@ -1,0 +1,237 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Papel {
+  admin
+  guiche
+  acertador
+  dgp
+  financeiro
+}
+
+enum Frota {
+  buzin
+  lbm
+  meli
+}
+
+enum StatusMotorista {
+  ativo
+  desligado
+}
+
+enum CategoriaMotorista {
+  frota
+  dedicado_usiminas
+  dedicado_arcelormittal
+  patio
+  tirador_ferias
+}
+
+enum StatusSolicitacao {
+  pendente
+  pago
+}
+
+model Usuario {
+  id        String   @id @default(uuid())
+  nome      String
+  email     String   @unique
+  senha     String
+  papel     Papel
+  ativo     Boolean  @default(true)
+  criadoEm  DateTime @default(now())
+
+  solicitacoes      Solicitacao[]
+  exclusoes         ExclusaoVale[]
+  auditoriasFeitas  Auditoria[]
+
+  @@map("usuarios")
+}
+
+model Motorista {
+  id           String             @id @default(uuid())
+  nome         String
+  cpf          String             @unique
+  contato      String
+  banco        String?
+  agencia      String?
+  pix          String?
+  destinatario String?
+  frota        Frota
+  status       StatusMotorista    @default(ativo)
+  categoria    CategoriaMotorista
+  criadoEm    DateTime           @default(now())
+  atualizadoEm DateTime          @updatedAt
+
+  solicitacoes     Solicitacao[]
+  exclusoes        ExclusaoVale[]
+  folgas           Folga[]
+  ferias           Ferias[]
+  agendamentos     Agendamento[]
+  controleFinanceiro ControleFinanceiro[]
+  auditorias       Auditoria[]
+
+  @@map("motoristas")
+}
+
+model TipoSolicitacao {
+  id           String        @id @default(uuid())
+  nome         String        @unique
+  ativo        Boolean       @default(true)
+  solicitacoes Solicitacao[]
+
+  @@map("tipos_solicitacao")
+}
+
+model Solicitacao {
+  id           String            @id @default(uuid())
+  solicitante  Usuario           @relation(fields: [solicitanteId], references: [id])
+  solicitanteId String
+  data         DateTime
+  tipo         TipoSolicitacao   @relation(fields: [tipoId], references: [id])
+  tipoId       String
+  motorista    Motorista         @relation(fields: [motoristaId], references: [id])
+  motoristaId  String
+  placa        String?
+  valor        Decimal           @db.Decimal(10, 2)
+  liberado     Decimal?          @db.Decimal(10, 2)
+  status       StatusSolicitacao @default(pendente)
+  anexoUrl     String?
+  criadoEm    DateTime          @default(now())
+  atualizadoEm DateTime         @updatedAt
+
+  auditorias Auditoria[]
+
+  @@map("solicitacoes")
+}
+
+model ExclusaoVale {
+  id           String    @id @default(uuid())
+  solicitante  Usuario   @relation(fields: [solicitanteId], references: [id])
+  solicitanteId String
+  numeroVale   String
+  dataVale     DateTime
+  motorista    Motorista @relation(fields: [motoristaId], references: [id])
+  motoristaId  String
+  motivo       String
+  feito        Boolean   @default(false)
+  criadoEm    DateTime  @default(now())
+  atualizadoEm DateTime  @updatedAt
+
+  auditorias Auditoria[]
+
+  @@map("exclusoes_vale")
+}
+
+model Folga {
+  id          String    @id @default(uuid())
+  motorista   Motorista @relation(fields: [motoristaId], references: [id])
+  motoristaId String
+  periodo     DateTime
+  quantidadeDias Int
+  valorTotal  Decimal   @db.Decimal(10, 2)
+  enviado     Boolean   @default(false)
+  criadoEm   DateTime  @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  auditorias Auditoria[]
+
+  @@map("folgas")
+}
+
+model Ferias {
+  id          String    @id @default(uuid())
+  motorista   Motorista @relation(fields: [motoristaId], references: [id])
+  motoristaId String
+  inicio      DateTime
+  fim         DateTime
+  quantidadeDias Int
+  criadoEm   DateTime  @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  auditorias Auditoria[]
+
+  @@map("ferias")
+}
+
+model Agendamento {
+  id             String    @id @default(uuid())
+  perfil         Int       // 1 ou 2
+  motorista      Motorista @relation(fields: [motoristaId], references: [id])
+  motoristaId    String
+  mesesAcerto    Int
+  dataHora       DateTime
+  criadoEm      DateTime  @default(now())
+  atualizadoEm  DateTime  @updatedAt
+
+  auditorias Auditoria[]
+
+  @@map("agendamentos")
+}
+
+model TipoDesconto {
+  id                 String               @id @default(uuid())
+  nome               String               @unique
+  ativo              Boolean              @default(true)
+  controleFinanceiro ControleFinanceiro[]
+
+  @@map("tipos_desconto")
+}
+
+model ControleFinanceiro {
+  id             String       @id @default(uuid())
+  motorista      Motorista    @relation(fields: [motoristaId], references: [id])
+  motoristaId    String
+  tipoDesconto   TipoDesconto @relation(fields: [tipoDescontoId], references: [id])
+  tipoDescontoId String
+  valor          Decimal      @db.Decimal(10, 2)
+  valorDescontado Decimal     @db.Decimal(10, 2)
+  numeroAcerto   String
+  mesDesconto    String       // formato: "2026-05"
+  observacao     String?
+  criadoEm      DateTime     @default(now())
+  atualizadoEm  DateTime     @updatedAt
+
+  auditorias Auditoria[]
+
+  @@map("controle_financeiro")
+}
+
+model Auditoria {
+  id        String   @id @default(uuid())
+  usuario   Usuario  @relation(fields: [usuarioId], references: [id])
+  usuarioId String
+  acao      String   // "criou", "editou", "excluiu"
+  tabela    String
+  registroId String
+
+  motorista    Motorista?   @relation(fields: [motoristaId], references: [id])
+  motoristaId  String?
+  solicitacao  Solicitacao? @relation(fields: [solicitacaoId], references: [id])
+  solicitacaoId String?
+  exclusao     ExclusaoVale? @relation(fields: [exclusaoId], references: [id])
+  exclusaoId   String?
+  folga        Folga?       @relation(fields: [folgaId], references: [id])
+  folgaId      String?
+  ferias       Ferias?      @relation(fields: [feriasId], references: [id])
+  feriasId     String?
+  agendamento  Agendamento? @relation(fields: [agendamentoId], references: [id])
+  agendamentoId String?
+  controle     ControleFinanceiro? @relation(fields: [controleId], references: [id])
+  controleId   String?
+
+  dadosAntigos Json?
+  dadosNovos   Json?
+  criadoEm    DateTime @default(now())
+
+  @@map("auditorias")
+}
