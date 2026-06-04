@@ -13,7 +13,7 @@ router.use(autenticar);
 router.get('/', autorizar('motoristas', 'leitura'), async (req, res) => {
   try {
     const { status, frota, categoria, busca } = req.query;
-    const where = {};
+    const where = { excluido: false };
     if (status) where.status = status;
     if (frota) where.frota = frota;
     if (categoria) where.categoria = categoria;
@@ -76,21 +76,10 @@ router.put('/:id', autorizar('motoristas', 'escrita'), async (req, res) => {
 router.delete('/:id', autorizar('motoristas', 'escrita'), async (req, res) => {
   if (req.usuario.papel !== 'admin') return res.status(403).json({ error: 'Apenas admin pode excluir' });
   try {
-    const id = req.params.id;
-
-    // Exclui registros relacionados antes
-    await prisma.auditoria.deleteMany({ where: { motoristaId: id } });
-    await prisma.solicitacao.deleteMany({ where: { motoristaId: id } });
-    await prisma.exclusaoVale.deleteMany({ where: { motoristaId: id } });
-    await prisma.folga.deleteMany({ where: { motoristaId: id } });
-    await prisma.ferias.deleteMany({ where: { motoristaId: id } });
-    await prisma.afastamento.deleteMany({ where: { motoristaId: id } });
-    await prisma.abandono.deleteMany({ where: { motoristaId: id } });
-    await prisma.agendamento.deleteMany({ where: { motoristaId: id } });
-    await prisma.controleFinanceiro.deleteMany({ where: { motoristaId: id } });
-
-    await prisma.motorista.delete({ where: { id } });
-
+    await prisma.motorista.update({
+      where: { id: req.params.id },
+      data: { excluido: true }
+    });
     res.json({ ok: true });
   } catch (err) {
     console.error(err);

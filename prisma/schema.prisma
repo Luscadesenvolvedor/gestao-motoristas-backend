@@ -73,6 +73,7 @@ model Motorista {
   categoria    CategoriaMotorista
   criadoEm    DateTime           @default(now())
   atualizadoEm DateTime          @updatedAt
+  excluido     Boolean  @default(false)
 
   solicitacoes     Solicitacao[]
   exclusoes        ExclusaoVale[]
