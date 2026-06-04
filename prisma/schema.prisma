@@ -51,10 +51,12 @@ model Usuario {
   permissoes Json?
   criadoEm  DateTime @default(now())
   perfilAgendamento Int?
+  perfilFinanceiro     Int?
 
   solicitacoes      Solicitacao[]
   exclusoes         ExclusaoVale[]
   auditoriasFeitas  Auditoria[]
+  financeiros          ControleFinanceiro[] @relation("FinanceiroUsuario")
 
   @@map("usuarios")
 }
@@ -236,8 +238,10 @@ model ControleFinanceiro {
   observacao     String?
   criadoEm      DateTime     @default(now())
   atualizadoEm  DateTime     @updatedAt
+  usuarioId  String?
 
   auditorias Auditoria[]
+  usuario    Usuario? @relation("FinanceiroUsuario", fields: [usuarioId], references: [id])
 
   @@map("controle_financeiro")
 }

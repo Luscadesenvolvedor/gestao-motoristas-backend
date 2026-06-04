@@ -12,7 +12,7 @@ router.get('/', async (req, res) => {
   const usuarios = await prisma.usuario.findMany({
     select: {
       id: true, nome: true, email: true, papel: true, ativo: true, criadoEm: true,
-      perfilAgendamento: true,
+      perfilAgendamento: true, perfilFinanceiro: true,
       auditoriasFeitas: req.usuario.papel === 'admin'
         ? { orderBy: { criadoEm: 'desc' }, take: 1, include: { usuario: { select: { nome: true } } } }
         : false
@@ -78,7 +78,7 @@ router.delete('/:id', autorizar('usuarios', 'escrita'), async (req, res) => {
 
 router.patch('/:id/permissoes', autorizar('usuarios', 'escrita'), async (req, res) => {
   try {
-    const usuario = await prisma.usuario.update({
+    await prisma.usuario.update({
       where: { id: req.params.id },
       data: { permissoes: req.body.permissoes }
     });
@@ -89,7 +89,7 @@ router.patch('/:id/permissoes', autorizar('usuarios', 'escrita'), async (req, re
   }
 });
 
-// Vincular perfil de agendamento (só admin)
+// Vincular perfil de agendamento
 router.patch('/:id/perfil-agendamento', autorizar('usuarios', 'escrita'), async (req, res) => {
   try {
     const { perfilAgendamento } = req.body;
@@ -100,7 +100,22 @@ router.patch('/:id/perfil-agendamento', autorizar('usuarios', 'escrita'), async 
     await registrarAuditoria({ usuarioId: req.usuario.id, acao: 'editou', tabela: 'usuarios', registroId: req.params.id, dadosNovos: { perfilAgendamento } });
     res.json({ ok: true });
   } catch {
-    res.status(500).json({ error: 'Erro ao vincular perfil' });
+    res.status(500).json({ error: 'Erro ao vincular perfil de agendamento' });
+  }
+});
+
+// Vincular perfil financeiro
+router.patch('/:id/perfil-financeiro', autorizar('usuarios', 'escrita'), async (req, res) => {
+  try {
+    const { perfilFinanceiro } = req.body;
+    await prisma.usuario.update({
+      where: { id: req.params.id },
+      data: { perfilFinanceiro: perfilFinanceiro ? parseInt(perfilFinanceiro) : null }
+    });
+    await registrarAuditoria({ usuarioId: req.usuario.id, acao: 'editou', tabela: 'usuarios', registroId: req.params.id, dadosNovos: { perfilFinanceiro } });
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: 'Erro ao vincular perfil financeiro' });
   }
 });
 
