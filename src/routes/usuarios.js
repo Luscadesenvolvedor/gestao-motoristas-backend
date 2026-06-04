@@ -11,12 +11,7 @@ router.use(autenticar, autorizar('usuarios', 'leitura'));
 router.get('/', async (req, res) => {
   const usuarios = await prisma.usuario.findMany({
     select: {
-      id: true,
-      nome: true,
-      email: true,
-      papel: true,
-      ativo: true,
-      criadoEm: true,
+      id: true, nome: true, email: true, papel: true, ativo: true, criadoEm: true,
       auditoriasFeitas: req.usuario.papel === 'admin'
         ? { orderBy: { criadoEm: 'desc' }, take: 1, include: { usuario: { select: { nome: true } } } }
         : false
@@ -50,6 +45,33 @@ router.put('/:id', autorizar('usuarios', 'escrita'), async (req, res) => {
     res.json(u);
   } catch {
     res.status(500).json({ error: 'Erro ao atualizar usuário' });
+  }
+});
+
+// Trocar própria senha
+router.patch('/trocar-senha', autenticar, async (req, res) => {
+  try {
+    const { senhaAtual, novaSenha } = req.body;
+    const usuario = await prisma.usuario.findUnique({ where: { id: req.usuario.id } });
+    const ok = await bcrypt.compare(senhaAtual, usuario.senha);
+    if (!ok) return res.status(400).json({ error: 'Senha atual incorreta' });
+    const hash = await bcrypt.hash(novaSenha, 10);
+    await prisma.usuario.update({ where: { id: req.usuario.id }, data: { senha: hash } });
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: 'Erro ao trocar senha' });
+  }
+});
+
+// Excluir (desativar) usuário
+router.delete('/:id', autorizar('usuarios', 'escrita'), async (req, res) => {
+  try {
+    if (req.params.id === req.usuario.id) return res.status(400).json({ error: 'Você não pode excluir a si mesmo' });
+    await prisma.usuario.update({ where: { id: req.params.id }, data: { ativo: false } });
+    await registrarAuditoria({ usuarioId: req.usuario.id, acao: 'excluiu', tabela: 'usuarios', registroId: req.params.id });
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: 'Erro ao excluir usuário' });
   }
 });
 
