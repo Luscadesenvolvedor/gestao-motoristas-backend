@@ -266,4 +266,18 @@ model Auditoria {
   criadoEm    DateTime @default(now())
 
   @@map("auditorias")
+
 }
+
+model Notificacao {
+  id        String   @id @default(uuid())
+  titulo    String
+  mensagem  String
+  tipo      String   // ferias, atestado, afastamento, abandono
+  lida      Boolean  @default(false)
+  usuarioId String?  // null = para todos
+  criadoEm DateTime @default(now())
+
+  @@map("notificacoes")
+}
+
