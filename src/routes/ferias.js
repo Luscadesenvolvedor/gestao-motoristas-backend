@@ -110,4 +110,34 @@ router.post('/abandonos', autorizar('ferias', 'escrita'), async (req, res) => {
   } catch { res.status(500).json({ error: 'Erro ao registrar abandono' }); }
 });
 
+// Excluir férias
+router.delete('/:id', autorizar('ferias', 'escrita'), async (req, res) => {
+  try {
+    await prisma.ferias.delete({ where: { id: req.params.id } });
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: 'Erro ao excluir' });
+  }
+});
+
+// Excluir afastamento
+router.delete('/afastamentos/:id', autorizar('ferias', 'escrita'), async (req, res) => {
+  try {
+    await prisma.afastamento.delete({ where: { id: req.params.id } });
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: 'Erro ao excluir afastamento' });
+  }
+});
+
+// Excluir abandono
+router.delete('/abandonos/:id', autorizar('ferias', 'escrita'), async (req, res) => {
+  try {
+    await prisma.abandono.delete({ where: { id: req.params.id } });
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: 'Erro ao excluir abandono' });
+  }
+});
+
 module.exports = router;
