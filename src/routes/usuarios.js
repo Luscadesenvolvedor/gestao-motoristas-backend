@@ -3,15 +3,16 @@ const bcrypt = require('bcryptjs');
 const { PrismaClient } = require('@prisma/client');
 const { autenticar, autorizar } = require('../middleware/auth');
 const { registrarAuditoria } = require('../middleware/auditoria');
-
 const router = express.Router();
 const prisma = new PrismaClient();
+
 router.use(autenticar, autorizar('usuarios', 'leitura'));
 
 router.get('/', async (req, res) => {
   const usuarios = await prisma.usuario.findMany({
     select: {
       id: true, nome: true, email: true, papel: true, ativo: true, criadoEm: true,
+      perfilAgendamento: true,
       auditoriasFeitas: req.usuario.papel === 'admin'
         ? { orderBy: { criadoEm: 'desc' }, take: 1, include: { usuario: { select: { nome: true } } } }
         : false
@@ -85,6 +86,21 @@ router.patch('/:id/permissoes', autorizar('usuarios', 'escrita'), async (req, re
     res.json({ ok: true });
   } catch {
     res.status(500).json({ error: 'Erro ao salvar permissões' });
+  }
+});
+
+// Vincular perfil de agendamento (só admin)
+router.patch('/:id/perfil-agendamento', autorizar('usuarios', 'escrita'), async (req, res) => {
+  try {
+    const { perfilAgendamento } = req.body;
+    await prisma.usuario.update({
+      where: { id: req.params.id },
+      data: { perfilAgendamento: perfilAgendamento ? parseInt(perfilAgendamento) : null }
+    });
+    await registrarAuditoria({ usuarioId: req.usuario.id, acao: 'editou', tabela: 'usuarios', registroId: req.params.id, dadosNovos: { perfilAgendamento } });
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: 'Erro ao vincular perfil' });
   }
 });
 

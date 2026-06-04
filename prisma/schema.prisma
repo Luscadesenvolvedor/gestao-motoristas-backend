@@ -50,6 +50,7 @@ model Usuario {
   ativo     Boolean  @default(true)
   permissoes Json?
   criadoEm  DateTime @default(now())
+  perfilAgendamento Int?
 
   solicitacoes      Solicitacao[]
   exclusoes         ExclusaoVale[]
@@ -203,6 +204,7 @@ model Agendamento {
   motorista      Motorista @relation(fields: [motoristaId], references: [id])
   motoristaId    String
   mesesAcerto    Int
+  mesesSelecionados String[] @default([])
   dataHora       DateTime
   criadoEm      DateTime  @default(now())
   atualizadoEm  DateTime  @updatedAt
