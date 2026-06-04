@@ -82,3 +82,4 @@ router.delete('/:id', autorizar('motoristas', 'escrita'), async (req, res) => {
     res.status(500).json({ error: 'Erro ao excluir motorista' });
   }
 });
+module.exports = router;
