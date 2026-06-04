@@ -76,10 +76,26 @@ router.put('/:id', autorizar('motoristas', 'escrita'), async (req, res) => {
 router.delete('/:id', autorizar('motoristas', 'escrita'), async (req, res) => {
   if (req.usuario.papel !== 'admin') return res.status(403).json({ error: 'Apenas admin pode excluir' });
   try {
-    await prisma.motorista.delete({ where: { id: req.params.id } });
+    const id = req.params.id;
+
+    // Exclui registros relacionados antes
+    await prisma.auditoria.deleteMany({ where: { motoristaId: id } });
+    await prisma.solicitacao.deleteMany({ where: { motoristaId: id } });
+    await prisma.exclusaoVale.deleteMany({ where: { motoristaId: id } });
+    await prisma.folga.deleteMany({ where: { motoristaId: id } });
+    await prisma.ferias.deleteMany({ where: { motoristaId: id } });
+    await prisma.afastamento.deleteMany({ where: { motoristaId: id } });
+    await prisma.abandono.deleteMany({ where: { motoristaId: id } });
+    await prisma.agendamento.deleteMany({ where: { motoristaId: id } });
+    await prisma.controleFinanceiro.deleteMany({ where: { motoristaId: id } });
+
+    await prisma.motorista.delete({ where: { id } });
+
     res.json({ ok: true });
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Erro ao excluir motorista' });
   }
 });
+
 module.exports = router;
