@@ -1,7 +1,5 @@
-// backend/src/routes/solicitacoes.js
 const express = require('express');
 const multer = require('multer');
-const path = require('path');
 const { PrismaClient } = require('@prisma/client');
 const { autenticar, autorizar } = require('../middleware/auth');
 const { registrarAuditoria } = require('../middleware/auditoria');
@@ -17,7 +15,6 @@ const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
 
 router.use(autenticar);
 
-// GET /api/solicitacoes
 router.get('/', autorizar('solicitacoes', 'leitura'), async (req, res) => {
   try {
     const { status, motoristaId, mes } = req.query;
@@ -42,7 +39,6 @@ router.get('/', autorizar('solicitacoes', 'leitura'), async (req, res) => {
       orderBy: { criadoEm: 'desc' }
     });
 
-    // Totais
     const totalSolicitado = solicitacoes.reduce((s, x) => s + Number(x.valor), 0);
     const totalLiberado = solicitacoes.reduce((s, x) => s + Number(x.liberado || 0), 0);
 
@@ -52,15 +48,19 @@ router.get('/', autorizar('solicitacoes', 'leitura'), async (req, res) => {
   }
 });
 
-// POST /api/solicitacoes
 router.post('/', autorizar('solicitacoes', 'escrita'), upload.single('anexo'), async (req, res) => {
   try {
     const { motoristaId, tipoId, data, placa, valor } = req.body;
-
-    // Verifica férias
     const hoje = new Date();
+
     const feriaAtiva = await prisma.ferias.findFirst({
-      where: { motoristaId, inicio: { lte: hoje }, fim: { gte: hoje } }
+      where: { motoristaId, inicio: { lte: hoje }, OR: [{ fim: { gte: hoje } }, { fim: null }] }
+    });
+    const afastamento = await prisma.afastamento.findFirst({
+      where: { motoristaId, retornou: false, dataInicio: { lte: hoje } }
+    });
+    const abandono = await prisma.abandono.findFirst({
+      where: { motoristaId }
     });
 
     const solicitacao = await prisma.solicitacao.create({
@@ -79,27 +79,29 @@ router.post('/', autorizar('solicitacoes', 'escrita'), upload.single('anexo'), a
 
     await registrarAuditoria({ usuarioId: req.usuario.id, acao: 'criou', tabela: 'solicitacoes', registroId: solicitacao.id, dadosNovos: req.body, extra: { solicitacaoId: solicitacao.id } });
 
-    res.status(201).json({ solicitacao, alertaFerias: !!feriaAtiva });
+    res.status(201).json({
+      solicitacao,
+      alertaFerias: !!feriaAtiva && feriaAtiva.tipo === 'ferias',
+      alertaAtestado: !!feriaAtiva && feriaAtiva.tipo === 'atestado',
+      alertaAfastamento: !!afastamento,
+      alertaAbandono: !!abandono
+    });
   } catch (err) {
     res.status(500).json({ error: 'Erro ao criar solicitação' });
   }
 });
 
-// PATCH /api/solicitacoes/:id/liberado  (somente admin)
 router.patch('/:id/liberado', autenticar, async (req, res) => {
   if (req.usuario.papel !== 'admin') return res.status(403).json({ error: 'Apenas admin pode liberar' });
   try {
     const { liberado } = req.body;
     const solicitacao = await prisma.solicitacao.findUnique({ where: { id: req.params.id } });
     const novoStatus = parseFloat(liberado) >= Number(solicitacao.valor) ? 'pago' : 'pendente';
-
     const atualizada = await prisma.solicitacao.update({
       where: { id: req.params.id },
       data: { liberado: parseFloat(liberado), status: novoStatus }
     });
-
     await registrarAuditoria({ usuarioId: req.usuario.id, acao: 'editou', tabela: 'solicitacoes', registroId: req.params.id, dadosAntigos: { liberado: solicitacao.liberado }, dadosNovos: { liberado }, extra: { solicitacaoId: req.params.id } });
-
     res.json(atualizada);
   } catch {
     res.status(500).json({ error: 'Erro ao atualizar liberado' });
