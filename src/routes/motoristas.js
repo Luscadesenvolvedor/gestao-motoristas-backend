@@ -76,11 +76,9 @@ router.put('/:id', autorizar('motoristas', 'escrita'), async (req, res) => {
 router.delete('/:id', autorizar('motoristas', 'escrita'), async (req, res) => {
   if (req.usuario.papel !== 'admin') return res.status(403).json({ error: 'Apenas admin pode excluir' });
   try {
-    await prisma.motorista.update({ where: { id: req.params.id }, data: { status: 'desligado' } });
+    await prisma.motorista.delete({ where: { id: req.params.id } });
     res.json({ ok: true });
   } catch {
-    res.status(500).json({ error: 'Erro ao desligar motorista' });
+    res.status(500).json({ error: 'Erro ao excluir motorista' });
   }
 });
-
-module.exports = router;

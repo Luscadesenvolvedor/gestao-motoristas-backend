@@ -65,6 +65,7 @@ model Motorista {
   contato      String
   banco        String?
   agencia      String?
+  conta        String?
   pix          String?
   destinatario String?
   frota        Frota
