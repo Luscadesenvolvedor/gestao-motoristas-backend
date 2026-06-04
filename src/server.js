@@ -11,6 +11,7 @@ const feriasRoutes = require('./routes/ferias');
 const agendamentosRoutes = require('./routes/agendamentos');
 const financeiroRoutes = require('./routes/financeiro');
 const tiposRoutes = require('./routes/tipos');
+const notificacoesRoutes = require('./routes/notificacoes');
 
 const app = express();
 
@@ -37,6 +38,7 @@ app.use('/api/ferias', feriasRoutes);
 app.use('/api/agendamentos', agendamentosRoutes);
 app.use('/api/financeiro', financeiroRoutes);
 app.use('/api/tipos', tiposRoutes);
+app.use('/api/notificacoes', notificacoesRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err.stack);
