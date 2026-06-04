@@ -75,4 +75,17 @@ router.delete('/:id', autorizar('usuarios', 'escrita'), async (req, res) => {
   }
 });
 
+router.patch('/:id/permissoes', autorizar('usuarios', 'escrita'), async (req, res) => {
+  try {
+    const usuario = await prisma.usuario.update({
+      where: { id: req.params.id },
+      data: { permissoes: req.body.permissoes }
+    });
+    await registrarAuditoria({ usuarioId: req.usuario.id, acao: 'editou', tabela: 'usuarios', registroId: req.params.id, dadosNovos: { permissoes: req.body.permissoes } });
+    res.json({ ok: true });
+  } catch {
+    res.status(500).json({ error: 'Erro ao salvar permissões' });
+  }
+});
+
 module.exports = router;

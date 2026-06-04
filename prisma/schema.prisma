@@ -48,6 +48,7 @@ model Usuario {
   senha     String
   papel     Papel
   ativo     Boolean  @default(true)
+  permissoes Json?
   criadoEm  DateTime @default(now())
 
   solicitacoes      Solicitacao[]
