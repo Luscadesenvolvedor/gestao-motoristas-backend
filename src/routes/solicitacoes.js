@@ -35,12 +35,12 @@ router.get('/', autorizar('solicitacoes', 'leitura'), async (req, res) => {
     });
 
     // Busca observacoes via raw SQL
-    const ids = solicitacoes.map(s => s.id);
-    let observacoes = {};
-    if (ids.length > 0) {
-      const rows = await prisma.$queryRaw`SELECT id, observacao FROM solicitacoes WHERE id = ANY(${ids}::uuid[])`;
-      rows.forEach(r => { observacoes[r.id] = r.observacao; });
-    }
+const ids = solicitacoes.map(s => s.id);
+let observacoes = {};
+if (ids.length > 0) {
+  const rows = await prisma.$queryRaw`SELECT id::text, observacao FROM solicitacoes WHERE id::text = ANY(${ids})`;
+  rows.forEach(r => { observacoes[r.id] = r.observacao; });
+}
 
     // Adiciona observacao em cada solicitacao
     const solicitacoesComObs = solicitacoes.map(s => ({ ...s, observacao: observacoes[s.id] || '' }));
