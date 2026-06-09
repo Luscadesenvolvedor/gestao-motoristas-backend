@@ -64,10 +64,12 @@ router.post('/', autorizar('motoristas', 'escrita'), async (req, res) => {
 router.put('/:id', autorizar('motoristas', 'escrita'), async (req, res) => {
   try {
     const antigo = await prisma.motorista.findUnique({ where: { id: req.params.id } });
-    const motorista = await prisma.motorista.update({ where: { id: req.params.id }, data: req.body });
-    await registrarAuditoria({ usuarioId: req.usuario.id, acao: 'editou', tabela: 'motoristas', registroId: motorista.id, dadosAntigos: antigo, dadosNovos: req.body, extra: { motoristaId: motorista.id } });
+    const { id, auditorias, ferias, solicitacoes, exclusoes, folgas, agendamentos, controleFinanceiro, afastamentos, abandonos, criadoEm, atualizadoEm, excluido, ...dados } = req.body;
+    const motorista = await prisma.motorista.update({ where: { id: req.params.id }, data: dados });
+    await registrarAuditoria({ usuarioId: req.usuario.id, acao: 'editou', tabela: 'motoristas', registroId: motorista.id, dadosAntigos: antigo, dadosNovos: dados, extra: { motoristaId: motorista.id } });
     res.json(motorista);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Erro ao atualizar motorista' });
   }
 });
