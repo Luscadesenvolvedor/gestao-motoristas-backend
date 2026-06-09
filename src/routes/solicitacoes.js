@@ -34,10 +34,21 @@ router.get('/', autorizar('solicitacoes', 'leitura'), async (req, res) => {
       orderBy: { criadoEm: 'desc' }
     });
 
-    const totalSolicitado = solicitacoes.reduce((s, x) => s + Number(x.valor), 0);
-    const totalLiberado = solicitacoes.reduce((s, x) => s + Number(x.liberado || 0), 0);
+    // Busca observacoes via raw SQL
+    const ids = solicitacoes.map(s => s.id);
+    let observacoes = {};
+    if (ids.length > 0) {
+      const rows = await prisma.$queryRaw`SELECT id, observacao FROM solicitacoes WHERE id = ANY(${ids}::uuid[])`;
+      rows.forEach(r => { observacoes[r.id] = r.observacao; });
+    }
 
-    res.json({ solicitacoes, totais: { totalSolicitado, totalLiberado, pendente: totalSolicitado - totalLiberado } });
+    // Adiciona observacao em cada solicitacao
+    const solicitacoesComObs = solicitacoes.map(s => ({ ...s, observacao: observacoes[s.id] || '' }));
+
+    const totalSolicitado = solicitacoesComObs.reduce((s, x) => s + Number(x.valor), 0);
+    const totalLiberado = solicitacoesComObs.reduce((s, x) => s + Number(x.liberado || 0), 0);
+
+    res.json({ solicitacoes: solicitacoesComObs, totais: { totalSolicitado, totalLiberado, pendente: totalSolicitado - totalLiberado } });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao buscar solicitações' });
