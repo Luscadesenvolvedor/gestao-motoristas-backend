@@ -51,12 +51,12 @@ model Usuario {
   permissoes Json?
   criadoEm  DateTime @default(now())
   perfilAgendamento Int?
-  perfilFinanceiro     Int?
+  perfilFinanceiro  Int?
 
   solicitacoes      Solicitacao[]
   exclusoes         ExclusaoVale[]
   auditoriasFeitas  Auditoria[]
-  financeiros          ControleFinanceiro[] @relation("FinanceiroUsuario")
+  financeiros       ControleFinanceiro[] @relation("FinanceiroUsuario")
 
   @@map("usuarios")
 }
@@ -74,19 +74,19 @@ model Motorista {
   frota        Frota
   status       StatusMotorista    @default(ativo)
   categoria    CategoriaMotorista
-  criadoEm    DateTime           @default(now())
-  atualizadoEm DateTime          @updatedAt
-  excluido     Boolean  @default(false)
+  criadoEm     DateTime           @default(now())
+  atualizadoEm DateTime           @updatedAt
+  excluido     Boolean            @default(false)
 
-  solicitacoes     Solicitacao[]
-  exclusoes        ExclusaoVale[]
-  folgas           Folga[]
-  ferias           Ferias[]
-  agendamentos     Agendamento[]
+  solicitacoes       Solicitacao[]
+  exclusoes          ExclusaoVale[]
+  folgas             Folga[]
+  ferias             Ferias[]
+  agendamentos       Agendamento[]
   controleFinanceiro ControleFinanceiro[]
-  auditorias       Auditoria[]
-  afastamentos Afastamento[]
-  abandonos    Abandono[]
+  auditorias         Auditoria[]
+  afastamentos       Afastamento[]
+  abandonos          Abandono[]
 
   @@map("motoristas")
 }
@@ -100,22 +100,43 @@ model TipoSolicitacao {
   @@map("tipos_solicitacao")
 }
 
+model TipoVale {
+  id           String        @id @default(uuid())
+  nome         String        @unique
+  ativo        Boolean       @default(true)
+  solicitacoes Solicitacao[]
+
+  @@map("tipos_vale")
+}
+
+model TipoRef {
+  id           String        @id @default(uuid())
+  nome         String        @unique
+  ativo        Boolean       @default(true)
+  solicitacoes Solicitacao[]
+
+  @@map("tipos_ref")
+}
+
 model Solicitacao {
-  id           String            @id @default(uuid())
-  solicitante  Usuario           @relation(fields: [solicitanteId], references: [id])
+  id            String            @id @default(uuid())
+  solicitante   Usuario           @relation(fields: [solicitanteId], references: [id])
   solicitanteId String
-  data         DateTime
-  tipo         TipoSolicitacao   @relation(fields: [tipoId], references: [id])
-  tipoId       String
-  motorista    Motorista         @relation(fields: [motoristaId], references: [id])
-  motoristaId  String
-  placa        String?
-  valor        Decimal           @db.Decimal(10, 2)
-  liberado     Decimal?          @db.Decimal(10, 2)
-  status       StatusSolicitacao @default(pendente)
-  anexoUrl     String?
-  criadoEm    DateTime          @default(now())
-  atualizadoEm DateTime         @updatedAt
+  data          DateTime
+  tipo          TipoSolicitacao   @relation(fields: [tipoId], references: [id])
+  tipoId        String
+  tipoVale      TipoVale?         @relation(fields: [tipoValeId], references: [id])
+  tipoValeId    String?
+  tipoRef       TipoRef?          @relation(fields: [tipoRefId], references: [id])
+  tipoRefId     String?
+  motorista     Motorista         @relation(fields: [motoristaId], references: [id])
+  motoristaId   String
+  placa         String?
+  valor         Decimal           @db.Decimal(10, 2)
+  liberado      Decimal?          @db.Decimal(10, 2)
+  status        StatusSolicitacao @default(pendente)
+  criadoEm     DateTime          @default(now())
+  atualizadoEm  DateTime          @updatedAt
 
   auditorias Auditoria[]
 
@@ -123,17 +144,17 @@ model Solicitacao {
 }
 
 model ExclusaoVale {
-  id           String    @id @default(uuid())
-  solicitante  Usuario   @relation(fields: [solicitanteId], references: [id])
+  id            String    @id @default(uuid())
+  solicitante   Usuario   @relation(fields: [solicitanteId], references: [id])
   solicitanteId String
-  numeroVale   String
-  dataVale     DateTime
-  motorista    Motorista @relation(fields: [motoristaId], references: [id])
-  motoristaId  String
-  motivo       String
-  feito        Boolean   @default(false)
-  criadoEm    DateTime  @default(now())
-  atualizadoEm DateTime  @updatedAt
+  numeroVale    String
+  dataVale      DateTime
+  motorista     Motorista @relation(fields: [motoristaId], references: [id])
+  motoristaId   String
+  motivo        String
+  feito         Boolean   @default(false)
+  criadoEm     DateTime  @default(now())
+  atualizadoEm  DateTime  @updatedAt
 
   auditorias Auditoria[]
 
@@ -141,15 +162,15 @@ model ExclusaoVale {
 }
 
 model Folga {
-  id          String    @id @default(uuid())
-  motorista   Motorista @relation(fields: [motoristaId], references: [id])
-  motoristaId String
-  periodo     DateTime
+  id             String    @id @default(uuid())
+  motorista      Motorista @relation(fields: [motoristaId], references: [id])
+  motoristaId    String
+  periodo        DateTime
   quantidadeDias Int
-  valorTotal  Decimal   @db.Decimal(10, 2)
-  enviado     Boolean   @default(false)
-  criadoEm   DateTime  @default(now())
-  atualizadoEm DateTime @updatedAt
+  valorTotal     Decimal   @db.Decimal(10, 2)
+  enviado        Boolean   @default(false)
+  criadoEm      DateTime  @default(now())
+  atualizadoEm   DateTime  @updatedAt
 
   auditorias Auditoria[]
 
@@ -157,16 +178,16 @@ model Folga {
 }
 
 model Ferias {
-  id          String    @id @default(uuid())
-  motorista   Motorista @relation(fields: [motoristaId], references: [id])
-  motoristaId String
-  tipo        String    @default("ferias") // ferias, atestado
-  inicio      DateTime
-  fim         DateTime?
+  id             String    @id @default(uuid())
+  motorista      Motorista @relation(fields: [motoristaId], references: [id])
+  motoristaId    String
+  tipo           String    @default("ferias")
+  inicio         DateTime
+  fim            DateTime?
   quantidadeDias Int?
-  observacao  String?
-  criadoEm   DateTime  @default(now())
-  atualizadoEm DateTime @updatedAt
+  observacao     String?
+  criadoEm      DateTime  @default(now())
+  atualizadoEm   DateTime  @updatedAt
 
   auditorias Auditoria[] @relation("FeriasAuditoria")
 
@@ -174,16 +195,16 @@ model Ferias {
 }
 
 model Afastamento {
-  id           String    @id @default(uuid())
-  motorista    Motorista @relation(fields: [motoristaId], references: [id])
-  motoristaId  String
-  dataInicio   DateTime
-  dataRetorno  DateTime?
-  indeterminado Boolean  @default(false)
-  retornou     Boolean   @default(false)
-  observacao   String?
-  criadoEm    DateTime  @default(now())
-  atualizadoEm DateTime @updatedAt
+  id            String    @id @default(uuid())
+  motorista     Motorista @relation(fields: [motoristaId], references: [id])
+  motoristaId   String
+  dataInicio    DateTime
+  dataRetorno   DateTime?
+  indeterminado Boolean   @default(false)
+  retornou      Boolean   @default(false)
+  observacao    String?
+  criadoEm     DateTime  @default(now())
+  atualizadoEm  DateTime  @updatedAt
 
   @@map("afastamentos")
 }
@@ -201,15 +222,15 @@ model Abandono {
 }
 
 model Agendamento {
-  id             String    @id @default(uuid())
-  perfil         Int       // 1 ou 2
-  motorista      Motorista @relation(fields: [motoristaId], references: [id])
-  motoristaId    String
-  mesesAcerto    Int
-  mesesSelecionados String[] @default([])
-  dataHora       DateTime
-  criadoEm      DateTime  @default(now())
-  atualizadoEm  DateTime  @updatedAt
+  id                String    @id @default(uuid())
+  perfil            Int
+  motorista         Motorista @relation(fields: [motoristaId], references: [id])
+  motoristaId       String
+  mesesAcerto       Int
+  mesesSelecionados String[]  @default([])
+  dataHora          DateTime
+  criadoEm         DateTime  @default(now())
+  atualizadoEm     DateTime  @updatedAt
 
   auditorias Auditoria[]
 
@@ -226,19 +247,19 @@ model TipoDesconto {
 }
 
 model ControleFinanceiro {
-  id             String       @id @default(uuid())
-  motorista      Motorista    @relation(fields: [motoristaId], references: [id])
-  motoristaId    String
-  tipoDesconto   TipoDesconto @relation(fields: [tipoDescontoId], references: [id])
-  tipoDescontoId String
-  valor          Decimal      @db.Decimal(10, 2)
-  valorDescontado Decimal     @db.Decimal(10, 2)
-  numeroAcerto   String
-  mesDesconto    String       // formato: "2026-05"
-  observacao     String?
-  criadoEm      DateTime     @default(now())
-  atualizadoEm  DateTime     @updatedAt
-  usuarioId  String?
+  id              String       @id @default(uuid())
+  motorista       Motorista    @relation(fields: [motoristaId], references: [id])
+  motoristaId     String
+  tipoDesconto    TipoDesconto @relation(fields: [tipoDescontoId], references: [id])
+  tipoDescontoId  String
+  valor           Decimal      @db.Decimal(10, 2)
+  valorDescontado Decimal      @db.Decimal(10, 2)
+  numeroAcerto    String
+  mesDesconto     String
+  observacao      String?
+  criadoEm       DateTime     @default(now())
+  atualizadoEm   DateTime     @updatedAt
+  usuarioId       String?
 
   auditorias Auditoria[]
   usuario    Usuario? @relation("FinanceiroUsuario", fields: [usuarioId], references: [id])
@@ -247,45 +268,43 @@ model ControleFinanceiro {
 }
 
 model Auditoria {
-  id        String   @id @default(uuid())
-  usuario   Usuario  @relation(fields: [usuarioId], references: [id])
-  usuarioId String
-  acao      String   // "criou", "editou", "excluiu"
-  tabela    String
+  id         String   @id @default(uuid())
+  usuario    Usuario  @relation(fields: [usuarioId], references: [id])
+  usuarioId  String
+  acao       String
+  tabela     String
   registroId String
 
-  motorista    Motorista?   @relation(fields: [motoristaId], references: [id])
-  motoristaId  String?
-  solicitacao  Solicitacao? @relation(fields: [solicitacaoId], references: [id])
+  motorista     Motorista?          @relation(fields: [motoristaId], references: [id])
+  motoristaId   String?
+  solicitacao   Solicitacao?        @relation(fields: [solicitacaoId], references: [id])
   solicitacaoId String?
-  exclusao     ExclusaoVale? @relation(fields: [exclusaoId], references: [id])
-  exclusaoId   String?
-  folga        Folga?       @relation(fields: [folgaId], references: [id])
-  folgaId      String?
-  ferias       Ferias?      @relation("FeriasAuditoria", fields: [feriasId], references: [id])
-  feriasId     String?
-  agendamento  Agendamento? @relation(fields: [agendamentoId], references: [id])
+  exclusao      ExclusaoVale?       @relation(fields: [exclusaoId], references: [id])
+  exclusaoId    String?
+  folga         Folga?              @relation(fields: [folgaId], references: [id])
+  folgaId       String?
+  ferias        Ferias?             @relation("FeriasAuditoria", fields: [feriasId], references: [id])
+  feriasId      String?
+  agendamento   Agendamento?        @relation(fields: [agendamentoId], references: [id])
   agendamentoId String?
-  controle     ControleFinanceiro? @relation(fields: [controleId], references: [id])
-  controleId   String?
+  controle      ControleFinanceiro? @relation(fields: [controleId], references: [id])
+  controleId    String?
 
   dadosAntigos Json?
   dadosNovos   Json?
   criadoEm    DateTime @default(now())
 
   @@map("auditorias")
-
 }
 
 model Notificacao {
   id        String   @id @default(uuid())
   titulo    String
   mensagem  String
-  tipo      String   // ferias, atestado, afastamento, abandono
+  tipo      String
   lida      Boolean  @default(false)
-  usuarioId String?  // null = para todos
+  usuarioId String?
   criadoEm DateTime @default(now())
 
   @@map("notificacoes")
 }
-

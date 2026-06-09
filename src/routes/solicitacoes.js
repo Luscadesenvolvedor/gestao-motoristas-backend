@@ -1,17 +1,10 @@
 const express = require('express');
-const multer = require('multer');
 const { PrismaClient } = require('@prisma/client');
 const { autenticar, autorizar } = require('../middleware/auth');
 const { registrarAuditoria } = require('../middleware/auditoria');
 
 const router = express.Router();
 const prisma = new PrismaClient();
-
-const storage = multer.diskStorage({
-  destination: 'uploads/',
-  filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`)
-});
-const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
 
 router.use(autenticar);
 
@@ -32,6 +25,8 @@ router.get('/', autorizar('solicitacoes', 'leitura'), async (req, res) => {
         solicitante: { select: { nome: true, papel: true } },
         motorista: { select: { nome: true, ferias: true } },
         tipo: true,
+        tipoVale: true,
+        tipoRef: true,
         auditorias: req.usuario.papel === 'admin'
           ? { orderBy: { criadoEm: 'desc' }, take: 1, include: { usuario: { select: { nome: true } } } }
           : false
@@ -43,14 +38,15 @@ router.get('/', autorizar('solicitacoes', 'leitura'), async (req, res) => {
     const totalLiberado = solicitacoes.reduce((s, x) => s + Number(x.liberado || 0), 0);
 
     res.json({ solicitacoes, totais: { totalSolicitado, totalLiberado, pendente: totalSolicitado - totalLiberado } });
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Erro ao buscar solicitações' });
   }
 });
 
-router.post('/', autorizar('solicitacoes', 'escrita'), upload.single('anexo'), async (req, res) => {
+router.post('/', autorizar('solicitacoes', 'escrita'), async (req, res) => {
   try {
-    const { motoristaId, tipoId, data, placa, valor } = req.body;
+    const { motoristaId, tipoId, tipoValeId, tipoRefId, data, placa, valor } = req.body;
     const hoje = new Date();
 
     const feriaAtiva = await prisma.ferias.findFirst({
@@ -59,22 +55,21 @@ router.post('/', autorizar('solicitacoes', 'escrita'), upload.single('anexo'), a
     const afastamento = await prisma.afastamento.findFirst({
       where: { motoristaId, retornou: false, dataInicio: { lte: hoje } }
     });
-    const abandono = await prisma.abandono.findFirst({
-      where: { motoristaId }
-    });
+    const abandono = await prisma.abandono.findFirst({ where: { motoristaId } });
 
     const solicitacao = await prisma.solicitacao.create({
       data: {
         solicitanteId: req.usuario.id,
         motoristaId,
         tipoId,
+        tipoValeId: tipoValeId || null,
+        tipoRefId: tipoRefId || null,
         data: new Date(data),
         placa,
         valor: parseFloat(valor),
-        anexoUrl: req.file ? `/uploads/${req.file.filename}` : null,
         status: 'pendente'
       },
-      include: { motorista: true, tipo: true, solicitante: { select: { nome: true } } }
+      include: { motorista: true, tipo: true, tipoVale: true, tipoRef: true, solicitante: { select: { nome: true } } }
     });
 
     await registrarAuditoria({ usuarioId: req.usuario.id, acao: 'criou', tabela: 'solicitacoes', registroId: solicitacao.id, dadosNovos: req.body, extra: { solicitacaoId: solicitacao.id } });
@@ -87,6 +82,7 @@ router.post('/', autorizar('solicitacoes', 'escrita'), upload.single('anexo'), a
       alertaAbandono: !!abandono
     });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Erro ao criar solicitação' });
   }
 });
