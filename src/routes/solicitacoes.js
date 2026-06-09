@@ -35,14 +35,13 @@ router.get('/', autorizar('solicitacoes', 'leitura'), async (req, res) => {
     });
 
     // Busca observacoes via raw SQL
-const ids = solicitacoes.map(s => s.id);
-let observacoes = {};
-if (ids.length > 0) {
-  const rows = await prisma.$queryRaw`SELECT id::text, observacao FROM solicitacoes WHERE id::text = ANY(${ids})`;
-  rows.forEach(r => { observacoes[r.id] = r.observacao; });
-}
+    const ids = solicitacoes.map(s => s.id);
+    let observacoes = {};
+    if (ids.length > 0) {
+      const rows = await prisma.$queryRaw`SELECT id::text, observacao FROM solicitacoes WHERE id::text = ANY(${ids})`;
+      rows.forEach(r => { observacoes[r.id] = r.observacao; });
+    }
 
-    // Adiciona observacao em cada solicitacao
     const solicitacoesComObs = solicitacoes.map(s => ({ ...s, observacao: observacoes[s.id] || '' }));
 
     const totalSolicitado = solicitacoesComObs.reduce((s, x) => s + Number(x.valor), 0);
@@ -83,7 +82,6 @@ router.post('/', autorizar('solicitacoes', 'escrita'), async (req, res) => {
       include: { motorista: true, tipo: true, tipoVale: true, tipoRef: true, solicitante: { select: { nome: true } } }
     });
 
-    // Salva observação via raw SQL
     if (observacao) {
       await prisma.$executeRaw`UPDATE solicitacoes SET observacao = ${observacao} WHERE id = ${solicitacao.id}`;
     }
@@ -117,6 +115,22 @@ router.patch('/:id/liberado', autenticar, async (req, res) => {
     res.json(atualizada);
   } catch {
     res.status(500).json({ error: 'Erro ao atualizar liberado' });
+  }
+});
+
+// DELETE /api/solicitacoes/:id (admin e financeiro)
+router.delete('/:id', autorizar('solicitacoes', 'escrita'), async (req, res) => {
+  const papel = req.usuario.papel;
+  if (papel !== 'admin' && papel !== 'financeiro') {
+    return res.status(403).json({ error: 'Apenas admin e financeiro podem excluir' });
+  }
+  try {
+    await prisma.auditoria.deleteMany({ where: { solicitacaoId: req.params.id } });
+    await prisma.solicitacao.delete({ where: { id: req.params.id } });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao excluir solicitação' });
   }
 });
 
