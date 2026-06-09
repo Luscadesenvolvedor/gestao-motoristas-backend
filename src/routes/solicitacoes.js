@@ -67,11 +67,15 @@ router.post('/', autorizar('solicitacoes', 'escrita'), async (req, res) => {
         data: new Date(data),
         placa,
         valor: parseFloat(valor),
-        observacao: observacao || null,
         status: 'pendente'
       },
       include: { motorista: true, tipo: true, tipoVale: true, tipoRef: true, solicitante: { select: { nome: true } } }
     });
+
+    // Salva observação via raw SQL
+    if (observacao) {
+      await prisma.$executeRaw`UPDATE solicitacoes SET observacao = ${observacao} WHERE id = ${solicitacao.id}`;
+    }
 
     await registrarAuditoria({ usuarioId: req.usuario.id, acao: 'criou', tabela: 'solicitacoes', registroId: solicitacao.id, dadosNovos: req.body, extra: { solicitacaoId: solicitacao.id } });
 
