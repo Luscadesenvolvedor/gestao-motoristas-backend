@@ -23,7 +23,7 @@ router.get('/', autorizar('solicitacoes', 'leitura'), async (req, res) => {
       where,
       include: {
         solicitante: { select: { nome: true, papel: true } },
-        motorista: { select: { nome: true, ferias: true } },
+        motorista: { select: { nome: true, pix: true, ferias: true } },
         tipo: true,
         tipoVale: true,
         tipoRef: true,
@@ -46,7 +46,7 @@ router.get('/', autorizar('solicitacoes', 'leitura'), async (req, res) => {
 
 router.post('/', autorizar('solicitacoes', 'escrita'), async (req, res) => {
   try {
-    const { motoristaId, tipoId, tipoValeId, tipoRefId, data, placa, valor } = req.body;
+    const { motoristaId, tipoId, tipoValeId, tipoRefId, data, placa, valor, observacao } = req.body;
     const hoje = new Date();
 
     const feriaAtiva = await prisma.ferias.findFirst({
@@ -67,6 +67,7 @@ router.post('/', autorizar('solicitacoes', 'escrita'), async (req, res) => {
         data: new Date(data),
         placa,
         valor: parseFloat(valor),
+        observacao: observacao || null,
         status: 'pendente'
       },
       include: { motorista: true, tipo: true, tipoVale: true, tipoRef: true, solicitante: { select: { nome: true } } }

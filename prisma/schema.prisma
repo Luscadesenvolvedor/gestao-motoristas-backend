@@ -155,6 +155,7 @@ model ExclusaoVale {
   feito         Boolean   @default(false)
   criadoEm     DateTime  @default(now())
   atualizadoEm  DateTime  @updatedAt
+  observacao   String?
 
   auditorias Auditoria[]
 
