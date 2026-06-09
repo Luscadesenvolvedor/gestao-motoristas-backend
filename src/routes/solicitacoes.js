@@ -23,7 +23,7 @@ router.get('/', autorizar('solicitacoes', 'leitura'), async (req, res) => {
       where,
       include: {
         solicitante: { select: { nome: true, papel: true } },
-        motorista: { select: { nome: true, pix: true, ferias: true } },
+        motorista: { select: { nome: true, pix: true, frota: true, ferias: true } },
         tipo: true,
         tipoVale: true,
         tipoRef: true,
