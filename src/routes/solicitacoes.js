@@ -106,12 +106,13 @@ router.patch('/:id/liberado', autenticar, async (req, res) => {
   try {
     const { liberado } = req.body;
     const solicitacao = await prisma.solicitacao.findUnique({ where: { id: req.params.id } });
-    const novoStatus = parseFloat(liberado) >= Number(solicitacao.valor) ? 'pago' : 'pendente';
+    const novoLiberado = Number(solicitacao.liberado || 0) + parseFloat(liberado);
+    const novoStatus = novoLiberado >= Number(solicitacao.valor) ? 'pago' : 'pendente';
     const atualizada = await prisma.solicitacao.update({
       where: { id: req.params.id },
-      data: { liberado: parseFloat(liberado), status: novoStatus }
+      data: { liberado: novoLiberado, status: novoStatus }
     });
-    await registrarAuditoria({ usuarioId: req.usuario.id, acao: 'editou', tabela: 'solicitacoes', registroId: req.params.id, dadosAntigos: { liberado: solicitacao.liberado }, dadosNovos: { liberado }, extra: { solicitacaoId: req.params.id } });
+    await registrarAuditoria({ usuarioId: req.usuario.id, acao: 'editou', tabela: 'solicitacoes', registroId: req.params.id, dadosAntigos: { liberado: solicitacao.liberado }, dadosNovos: { liberado: novoLiberado }, extra: { solicitacaoId: req.params.id } });
     res.json(atualizada);
   } catch {
     res.status(500).json({ error: 'Erro ao atualizar liberado' });
