@@ -106,6 +106,9 @@ router.patch('/:id/liberado', autenticar, async (req, res) => {
   try {
     const { liberado } = req.body;
     const solicitacao = await prisma.solicitacao.findUnique({ where: { id: req.params.id } });
+    if (solicitacao.status === 'pago') {
+      return res.status(400).json({ error: 'Solicitação já paga não pode ser editada' });
+    }
     const novoLiberado = Number(solicitacao.liberado || 0) + parseFloat(liberado);
     const novoStatus = novoLiberado >= Number(solicitacao.valor) ? 'pago' : 'pendente';
     const atualizada = await prisma.solicitacao.update({
