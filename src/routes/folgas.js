@@ -21,7 +21,7 @@ router.post('/', autorizar('folgas', 'escrita'), async (req, res) => {
   try {
     const { motoristaId, periodo, quantidadeDias } = req.body;
     const valorTotal = quantidadeDias * 150;
-    const folga = await prisma.folga.create({ data: { motoristaId, periodo: new Date(periodo), quantidadeDias: parseInt(quantidadeDias), valorTotal } });
+   const folga = await prisma.folga.create({ data: { motoristaId, periodo, quantidadeDias: parseInt(quantidadeDias), valorTotal } });
     await registrarAuditoria({ usuarioId: req.usuario.id, acao: 'criou', tabela: 'folgas', registroId: folga.id, dadosNovos: req.body, extra: { folgaId: folga.id } });
     res.status(201).json(folga);
   } catch { res.status(500).json({ error: 'Erro ao registrar folga' }); }
