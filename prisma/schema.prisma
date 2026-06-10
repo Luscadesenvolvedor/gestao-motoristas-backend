@@ -166,7 +166,7 @@ model Folga {
   id             String    @id @default(uuid())
   motorista      Motorista @relation(fields: [motoristaId], references: [id])
   motoristaId    String
-  periodo        string
+  periodo        String
   quantidadeDias Int
   valorTotal     Decimal   @db.Decimal(10, 2)
   enviado        Boolean   @default(false)
