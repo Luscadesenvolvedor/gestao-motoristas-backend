@@ -104,18 +104,29 @@ router.post('/', autorizar('solicitacoes', 'escrita'), async (req, res) => {
 router.patch('/:id/liberado', autenticar, async (req, res) => {
   if (req.usuario.papel !== 'admin') return res.status(403).json({ error: 'Apenas admin pode liberar' });
   try {
-    const { liberado } = req.body;
+    const { liberado, marcarPago } = req.body;
     const solicitacao = await prisma.solicitacao.findUnique({ where: { id: req.params.id } });
     if (solicitacao.status === 'pago') {
       return res.status(400).json({ error: 'Solicitação já paga não pode ser editada' });
     }
-    const novoLiberado = Number(solicitacao.liberado || 0) + parseFloat(liberado);
-    const novoStatus = novoLiberado >= Number(solicitacao.valor) ? 'pago' : 'pendente';
+
+    let novoLiberado = solicitacao.liberado;
+    let novoStatus = solicitacao.status;
+
+    if (liberado !== undefined) {
+      novoLiberado = Number(solicitacao.liberado || 0) + parseFloat(liberado);
+      // Não muda status automaticamente
+    }
+
+    if (marcarPago) {
+      novoStatus = 'pago';
+    }
+
     const atualizada = await prisma.solicitacao.update({
       where: { id: req.params.id },
       data: { liberado: novoLiberado, status: novoStatus }
     });
-    await registrarAuditoria({ usuarioId: req.usuario.id, acao: 'editou', tabela: 'solicitacoes', registroId: req.params.id, dadosAntigos: { liberado: solicitacao.liberado }, dadosNovos: { liberado: novoLiberado }, extra: { solicitacaoId: req.params.id } });
+    await registrarAuditoria({ usuarioId: req.usuario.id, acao: 'editou', tabela: 'solicitacoes', registroId: req.params.id, dadosAntigos: { liberado: solicitacao.liberado, status: solicitacao.status }, dadosNovos: { liberado: novoLiberado, status: novoStatus }, extra: { solicitacaoId: req.params.id } });
     res.json(atualizada);
   } catch {
     res.status(500).json({ error: 'Erro ao atualizar liberado' });
