@@ -20,7 +20,8 @@ enum Papel {
 enum Frota {
   buzin
   lbm
-  meli
+  meli_buzin
+  meli_lbm
 }
 
 enum StatusMotorista {
