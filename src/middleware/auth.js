@@ -12,7 +12,7 @@ const permissoes = {
   ferias:     { leitura: ['admin','guiche','acertador','dgp','financeiro'], escrita: ['admin','dgp'] },
   agendamentos: { leitura: ['admin','guiche'], escrita: ['admin','guiche'] },
   financeiro: { leitura: ['admin','acertador'], escrita: ['admin','acertador'] },
-  tipos:      { leitura: ['admin','guiche','acertador','dgp','financeiro'], escrita: ['admin'] },
+  tipos:      { leitura: ['admin','guiche','acertador','dgp','financeiro'], escrita: ['admin','guiche','acertador','dgp','financeiro'] },
 };
 
 async function autenticar(req, res, next) {
