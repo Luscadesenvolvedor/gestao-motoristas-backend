@@ -51,6 +51,20 @@ router.get('/:id', autorizar('motoristas', 'leitura'), async (req, res) => {
 // POST /api/motoristas
 router.post('/', autorizar('motoristas', 'escrita'), async (req, res) => {
   try {
+    const { nome, cpf } = req.body;
+
+    // Verifica duplicidade de CPF
+    if (cpf) {
+      const existeCpf = await prisma.motorista.findFirst({ where: { cpf, excluido: false } });
+      if (existeCpf) return res.status(400).json({ error: 'CPF já cadastrado' });
+    }
+
+    // Verifica duplicidade de nome
+    const existeNome = await prisma.motorista.findFirst({
+      where: { nome: { equals: nome, mode: 'insensitive' }, excluido: false }
+    });
+    if (existeNome) return res.status(400).json({ error: 'Motorista com este nome já cadastrado' });
+
     const motorista = await prisma.motorista.create({ data: req.body });
     await registrarAuditoria({ usuarioId: req.usuario.id, acao: 'criou', tabela: 'motoristas', registroId: motorista.id, dadosNovos: req.body, extra: { motoristaId: motorista.id } });
     res.status(201).json(motorista);
@@ -59,7 +73,7 @@ router.post('/', autorizar('motoristas', 'escrita'), async (req, res) => {
     res.status(500).json({ error: 'Erro ao criar motorista' });
   }
 });
-
+ 
 // PUT /api/motoristas/:id
 router.put('/:id', autorizar('motoristas', 'escrita'), async (req, res) => {
   try {
