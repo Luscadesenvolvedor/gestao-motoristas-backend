@@ -136,8 +136,9 @@ model Solicitacao {
   valor         Decimal           @db.Decimal(10, 2)
   liberado      Decimal?          @db.Decimal(10, 2)
   status        StatusSolicitacao @default(pendente)
+  dataPagamento DateTime?
+  realizadoPor  String?
   criadoEm     DateTime          @default(now())
-  atualizadoEm  DateTime          @updatedAt
 
   auditorias Auditoria[]
 
