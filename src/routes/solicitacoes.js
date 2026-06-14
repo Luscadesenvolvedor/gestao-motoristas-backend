@@ -34,7 +34,6 @@ router.get('/', autorizar('solicitacoes', 'leitura'), async (req, res) => {
       orderBy: { criadoEm: 'desc' }
     });
 
-    // Busca observacoes via raw SQL
     const ids = solicitacoes.map(s => s.id);
     let observacoes = {};
     if (ids.length > 0) {
@@ -101,25 +100,62 @@ router.post('/', autorizar('solicitacoes', 'escrita'), async (req, res) => {
   }
 });
 
+router.patch('/marcar-realizado', autorizar('solicitacoes', 'escrita'), async (req, res) => {
+  try {
+    const { ids, observacoes } = req.body;
+    const nome = req.usuario.nome;
+    for (const id of (ids || [])) {
+      const obs = observacoes?.[id];
+      if (obs !== undefined) {
+        await prisma.$executeRaw`UPDATE solicitacoes SET observacao = ${obs}, "realizadoPor" = ${nome} WHERE id::text = ${id}`;
+      } else {
+        await prisma.$executeRaw`UPDATE solicitacoes SET "realizadoPor" = ${nome} WHERE id::text = ${id}`;
+      }
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao marcar realizado' });
+  }
+});
+
+router.patch('/:id/data-pagamento', autorizar('solicitacoes', 'escrita'), async (req, res) => {
+  try {
+    const { dataPagamento } = req.body;
+    const atualizada = await prisma.solicitacao.update({
+      where: { id: req.params.id },
+      data: { dataPagamento: dataPagamento ? new Date(dataPagamento + 'T00:00:00') : null }
+    });
+    res.json(atualizada);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao atualizar data de pagamento' });
+  }
+});
+
 router.patch('/:id/liberado', autenticar, async (req, res) => {
   if (req.usuario.papel !== 'admin') return res.status(403).json({ error: 'Apenas admin pode liberar' });
   try {
     const { liberado, marcarPago } = req.body;
-    const solicitacao = await prisma.solicitacao.findUnique({ where: { id: req.params.id } });
+    const solicitacao = await prisma.solicitacao.findUnique({ where: { id: req.params.id }, include: { tipo: true } });
     if (solicitacao.status === 'pago') {
       return res.status(400).json({ error: 'Solicitação já paga não pode ser editada' });
     }
+
+    const ehSaldo = (solicitacao.tipo?.nome || '').toLowerCase().includes('saldo');
 
     let novoLiberado = solicitacao.liberado;
     let novoStatus = solicitacao.status;
 
     if (liberado !== undefined) {
       novoLiberado = Number(solicitacao.liberado || 0) + parseFloat(liberado);
-      // Não muda status automaticamente
     }
 
     if (marcarPago) {
       novoStatus = 'pago';
+      if (ehSaldo) {
+        novoLiberado = solicitacao.valor;
+      }
     }
 
     const atualizada = await prisma.solicitacao.update({
@@ -128,12 +164,12 @@ router.patch('/:id/liberado', autenticar, async (req, res) => {
     });
     await registrarAuditoria({ usuarioId: req.usuario.id, acao: 'editou', tabela: 'solicitacoes', registroId: req.params.id, dadosAntigos: { liberado: solicitacao.liberado, status: solicitacao.status }, dadosNovos: { liberado: novoLiberado, status: novoStatus }, extra: { solicitacaoId: req.params.id } });
     res.json(atualizada);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: 'Erro ao atualizar liberado' });
   }
 });
 
-// DELETE /api/solicitacoes/:id (admin e financeiro)
 router.delete('/:id', autorizar('solicitacoes', 'escrita'), async (req, res) => {
   const papel = req.usuario.papel;
   if (papel !== 'admin' && papel !== 'financeiro') {
