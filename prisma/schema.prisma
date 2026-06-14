@@ -139,8 +139,9 @@ model Solicitacao {
   dataPagamento DateTime?
   realizadoPor  String?
   criadoEm     DateTime          @default(now())
+  atualizadoEm  DateTime          @updatedAt
 
-  auditorias Auditoria[]
+  auditorias Auditoria[]	
 
   @@map("solicitacoes")
 }
