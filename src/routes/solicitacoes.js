@@ -149,7 +149,7 @@ router.patch('/:id/data-pagamento', autorizar('solicitacoes', 'escrita'), async 
 });
 
 router.patch('/pagar-bulk', autenticar, async (req, res) => {
-  if (req.usuario.papel !== 'admin') return res.status(403).json({ error: 'Apenas admin pode liberar' });
+  if (!['admin','financeiro'].includes(req.usuario.papel)) return res.status(403).json({ error: 'Sem permissão' });
   try {
     const { ids } = req.body;
     if (!ids || !ids.length) return res.status(400).json({ error: 'ids obrigatório' });
@@ -172,7 +172,7 @@ router.patch('/pagar-bulk', autenticar, async (req, res) => {
 });
 
 router.patch('/:id/liberado', autenticar, async (req, res) => {
-  if (req.usuario.papel !== 'admin') return res.status(403).json({ error: 'Apenas admin pode liberar' });
+  if (!['admin','financeiro'].includes(req.usuario.papel)) return res.status(403).json({ error: 'Sem permissão' });
   try {
     const { liberado, marcarPago } = req.body;
     const solicitacao = await prisma.solicitacao.findUnique({ where: { id: req.params.id }, include: { tipo: true } });
