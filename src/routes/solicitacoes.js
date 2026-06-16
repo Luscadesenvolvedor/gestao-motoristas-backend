@@ -148,6 +148,29 @@ router.patch('/:id/data-pagamento', autorizar('solicitacoes', 'escrita'), async 
   }
 });
 
+router.patch('/pagar-bulk', autenticar, async (req, res) => {
+  if (req.usuario.papel !== 'admin') return res.status(403).json({ error: 'Apenas admin pode liberar' });
+  try {
+    const { ids } = req.body;
+    if (!ids || !ids.length) return res.status(400).json({ error: 'ids obrigatório' });
+    const solicitacoes = await prisma.solicitacao.findMany({
+      where: { id: { in: ids }, status: { not: 'pago' } },
+      include: { tipo: true }
+    });
+    for (const s of solicitacoes) {
+      const ehSaldo = (s.tipo?.nome || '').toLowerCase().includes('saldo');
+      await prisma.solicitacao.update({
+        where: { id: s.id },
+        data: { status: 'pago', liberado: ehSaldo ? s.valor : s.liberado }
+      });
+    }
+    res.json({ ok: true, atualizados: solicitacoes.length });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao marcar como pago' });
+  }
+});
+
 router.patch('/:id/liberado', autenticar, async (req, res) => {
   if (req.usuario.papel !== 'admin') return res.status(403).json({ error: 'Apenas admin pode liberar' });
   try {
