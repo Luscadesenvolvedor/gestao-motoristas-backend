@@ -119,6 +119,21 @@ router.patch('/marcar-realizado', autorizar('solicitacoes', 'escrita'), async (r
   }
 });
 
+router.patch('/data-pagamento-bulk', autorizar('solicitacoes', 'escrita'), async (req, res) => {
+  try {
+    const { ids, dataPagamento } = req.body;
+    if (!ids || !ids.length) return res.status(400).json({ error: 'ids obrigatório' });
+    await prisma.solicitacao.updateMany({
+      where: { id: { in: ids } },
+      data: { dataPagamento: dataPagamento ? new Date(dataPagamento + 'T00:00:00') : null }
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao atualizar datas' });
+  }
+});
+
 router.patch('/:id/data-pagamento', autorizar('solicitacoes', 'escrita'), async (req, res) => {
   try {
     const { dataPagamento } = req.body;
