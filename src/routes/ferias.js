@@ -170,4 +170,43 @@ router.delete('/abandonos/:id', autorizar('ferias', 'escrita'), async (req, res)
   } catch { res.status(500).json({ error: 'Erro ao excluir abandono' }); }
 });
 
+
+// GET /ferias/alertas-bulk?ids=id1,id2,...
+router.get('/alertas-bulk', async (req, res) => {
+  try {
+    const ids = (req.query.ids || '').split(',').filter(Boolean);
+    if (!ids.length) return res.json({});
+    const hoje = new Date();
+
+    const [todasFerias, todosAfastamentos, todosAbandonos] = await Promise.all([
+      prisma.ferias.findMany({
+        where: { motoristaId: { in: ids }, inicio: { lte: hoje }, OR: [{ fim: { gte: hoje } }, { fim: null }] }
+      }),
+      prisma.afastamento.findMany({
+        where: { motoristaId: { in: ids }, retornou: false, dataInicio: { lte: hoje } }
+      }),
+      prisma.abandono.findMany({
+        where: { motoristaId: { in: ids } }
+      })
+    ]);
+
+    const resultado = {};
+    for (const id of ids) {
+      const ferias = todasFerias.find(f => f.motoristaId === id);
+      const afastamento = todosAfastamentos.find(a => a.motoristaId === id);
+      const abandono = todosAbandonos.find(a => a.motoristaId === id);
+      resultado[id] = {
+        emFerias: !!ferias && ferias.tipo === 'ferias',
+        emAtestado: !!ferias && ferias.tipo === 'atestado',
+        emAfastamento: !!afastamento,
+        abandonou: !!abandono
+      };
+    }
+    res.json(resultado);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao buscar alertas' });
+  }
+});
+
 module.exports = router;

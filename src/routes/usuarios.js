@@ -24,6 +24,11 @@ router.get('/', async (req, res) => {
 router.post('/', autorizar('usuarios', 'escrita'), async (req, res) => {
   try {
     const { nome, email, senha, papel } = req.body;
+    const PAPEIS_VALIDOS = ['admin','guiche','acertador','dgp','financeiro'];
+    if (!nome || !email || !senha || !papel) return res.status(400).json({ error: 'Campos obrigatórios: nome, email, senha, papel' });
+    if (!/.+@.+\..+/.test(email)) return res.status(400).json({ error: 'Email inválido' });
+    if (senha.length < 6) return res.status(400).json({ error: 'Senha deve ter no mínimo 6 caracteres' });
+    if (!PAPEIS_VALIDOS.includes(papel)) return res.status(400).json({ error: 'Papel inválido' });
     const hash = await bcrypt.hash(senha, 10);
     const usuario = await prisma.usuario.create({ data: { nome, email, senha: hash, papel } });
     await registrarAuditoria({ usuarioId: req.usuario.id, acao: 'criou', tabela: 'usuarios', registroId: usuario.id, dadosNovos: { nome, email, papel } });
@@ -53,6 +58,8 @@ router.put('/:id', autorizar('usuarios', 'escrita'), async (req, res) => {
 router.patch('/trocar-senha', autenticar, async (req, res) => {
   try {
     const { senhaAtual, novaSenha } = req.body;
+    if (!senhaAtual || !novaSenha) return res.status(400).json({ error: 'Campos obrigatórios ausentes' });
+    if (novaSenha.length < 6) return res.status(400).json({ error: 'Nova senha deve ter no mínimo 6 caracteres' });
     const usuario = await prisma.usuario.findUnique({ where: { id: req.usuario.id } });
     const ok = await bcrypt.compare(senhaAtual, usuario.senha);
     if (!ok) return res.status(400).json({ error: 'Senha atual incorreta' });

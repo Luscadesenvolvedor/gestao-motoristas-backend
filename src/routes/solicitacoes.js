@@ -56,6 +56,8 @@ router.get('/', autorizar('solicitacoes', 'leitura'), async (req, res) => {
 router.post('/', autorizar('solicitacoes', 'escrita'), async (req, res) => {
   try {
     const { motoristaId, tipoId, tipoValeId, tipoRefId, data, placa, valor, observacao } = req.body;
+    if (!motoristaId || !tipoId || !valor || !data) return res.status(400).json({ error: 'Campos obrigatórios ausentes' });
+    if (parseFloat(valor) <= 0) return res.status(400).json({ error: 'Valor deve ser maior que zero' });
     const hoje = new Date();
 
     const feriaAtiva = await prisma.ferias.findFirst({
@@ -65,6 +67,19 @@ router.post('/', autorizar('solicitacoes', 'escrita'), async (req, res) => {
       where: { motoristaId, retornou: false, dataInicio: { lte: hoje } }
     });
     const abandono = await prisma.abandono.findFirst({ where: { motoristaId } });
+
+    // Barrar duplicidade: mesmo motorista + tipo + valor nos últimos 15 segundos
+    const quinzeSegAtras = new Date(Date.now() - 3000);
+    const duplicada = await prisma.solicitacao.findFirst({
+      where: {
+        motoristaId,
+        tipoId,
+        valor: parseFloat(valor),
+        solicitanteId: req.usuario.id,
+        criadoEm: { gte: quinzeSegAtras }
+      }
+    });
+    if (duplicada) return res.status(409).json({ error: 'Solicitação duplicada. Aguarde alguns segundos antes de tentar novamente.' });
 
     const solicitacao = await prisma.solicitacao.create({
       data: {
@@ -208,6 +223,39 @@ router.patch('/:id/liberado', autenticar, async (req, res) => {
   }
 });
 
+
+router.patch('/marcar-exportado', autorizar('solicitacoes', 'escrita'), async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!ids || !ids.length) return res.status(400).json({ error: 'ids obrigatorio' });
+    const dataHoje = new Date().toLocaleDateString('pt-BR');
+    for (const id of ids) {
+      const sol = await prisma.solicitacao.findUnique({ where: { id }, select: { liberado: true, liberadoExportado: true } });
+      if (sol) {
+        const novoLiberado = parseFloat(sol.liberado || 0);
+        const jaExportado = parseFloat(sol.liberadoExportado || 0);
+        const lote = novoLiberado - jaExportado;
+        await prisma.solicitacao.update({
+          where: { id },
+          data: { liberadoExportado: novoLiberado }
+        });
+        await registrarAuditoria({
+          usuarioId: req.usuario.id,
+          acao: 'pagou',
+          tabela: 'solicitacoes',
+          registroId: id,
+          dadosNovos: { lote: lote.toFixed(2), data: dataHoje, totalLiberado: novoLiberado.toFixed(2) },
+          extra: { solicitacaoId: id }
+        });
+      }
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao marcar exportado' });
+  }
+});
+
 router.delete('/:id', autorizar('solicitacoes', 'escrita'), async (req, res) => {
   const papel = req.usuario.papel;
   if (papel !== 'admin' && papel !== 'financeiro') {
@@ -220,6 +268,38 @@ router.delete('/:id', autorizar('solicitacoes', 'escrita'), async (req, res) => 
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao excluir solicitação' });
+  }
+});
+
+// GET /solicitacoes/:id/historico
+router.get('/:id/historico', autenticar, async (req, res) => {
+  if (!['admin','financeiro'].includes(req.usuario.papel)) return res.status(403).json({ error: 'Sem permissao' });
+  try {
+    const auditorias = await prisma.auditoria.findMany({
+      where: { solicitacaoId: req.params.id },
+      orderBy: { criadoEm: 'desc' },
+      include: { usuario: { select: { nome: true } } },
+    });
+    res.json(auditorias);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao buscar histórico' });
+  }
+});
+
+// PATCH /solicitacoes/:id/prioridade
+router.patch('/:id/prioridade', autenticar, async (req, res) => {
+  try {
+    const atual = await prisma.solicitacao.findUnique({ where: { id: req.params.id }, select: { prioridade: true } });
+    if (!atual) return res.status(404).json({ error: 'Nao encontrado' });
+    const updated = await prisma.solicitacao.update({
+      where: { id: req.params.id },
+      data: { prioridade: !atual.prioridade }
+    });
+    res.json({ ok: true, prioridade: updated.prioridade });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao atualizar prioridade' });
   }
 });
 

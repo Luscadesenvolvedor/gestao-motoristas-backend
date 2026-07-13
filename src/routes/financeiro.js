@@ -46,12 +46,26 @@ router.get('/', async (req, res) => {
 // POST /api/financeiro
 router.post('/', autorizar('financeiro', 'escrita'), async (req, res) => {
   try {
+    let usuarioId = req.usuario.id;
+    // Admin criando registro para um acertador específico
+    if (req.usuario.papel === 'admin' && req.body.perfilAlvo) {
+      const alvo = await prisma.usuario.findFirst({ where: { perfilFinanceiro: parseInt(req.body.perfilAlvo) } });
+      if (alvo) usuarioId = alvo.id;
+    }
+    const { motoristaId, tipoDescontoId, mesDesconto, numeroAcerto, numeroVale, valor, valorDescontado, observacao } = req.body;
+    if (!motoristaId || !tipoDescontoId || !valor) return res.status(400).json({ error: 'Campos obrigatórios ausentes' });
     const item = await prisma.controleFinanceiro.create({
       data: {
-        ...req.body,
-        valor: parseFloat(req.body.valor),
-        valorDescontado: parseFloat(req.body.valorDescontado),
-        usuarioId: req.usuario.id
+        motoristaId,
+        tipoDescontoId,
+        mesDesconto,
+        numeroAcerto: numeroAcerto || '',
+        numeroVale: numeroVale || null,
+        mesDesconto: mesDesconto || null,
+        valor: parseFloat(valor),
+        valorDescontado: parseFloat(valorDescontado || 0),
+        observacao: observacao || null,
+        usuarioId
       }
     });
     await registrarAuditoria({ usuarioId: req.usuario.id, acao: 'criou', tabela: 'financeiro', registroId: item.id, dadosNovos: req.body, extra: { controleId: item.id } });
@@ -66,12 +80,24 @@ router.post('/', autorizar('financeiro', 'escrita'), async (req, res) => {
 router.put('/:id', autorizar('financeiro', 'escrita'), async (req, res) => {
   try {
     const antigo = await prisma.controleFinanceiro.findUnique({ where: { id: req.params.id } });
+    if (!antigo) return res.status(404).json({ error: 'Registro não encontrado' });
+    // Acertador só pode editar seus próprios registros
+    if (req.usuario.papel === 'acertador' && antigo.usuarioId !== req.usuario.id) {
+      return res.status(403).json({ error: 'Sem permissão para editar este registro' });
+    }
+    const { motoristaId, tipoDescontoId, mesDesconto, numeroAcerto, numeroVale, valor, valorDescontado, observacao } = req.body;
     const item = await prisma.controleFinanceiro.update({
       where: { id: req.params.id },
       data: {
-        ...req.body,
-        valor: parseFloat(req.body.valor),
-        valorDescontado: parseFloat(req.body.valorDescontado)
+        motoristaId,
+        tipoDescontoId,
+        mesDesconto,
+        numeroAcerto: numeroAcerto || antigo.numeroAcerto,
+        numeroVale: numeroVale !== undefined ? (numeroVale || null) : antigo.numeroVale,
+        mesDesconto: mesDesconto || null,
+        observacao: observacao || null,
+        valor: parseFloat(valor),
+        valorDescontado: parseFloat(valorDescontado || 0)
       }
     });
     await registrarAuditoria({ usuarioId: req.usuario.id, acao: 'editou', tabela: 'financeiro', registroId: req.params.id, dadosAntigos: antigo, dadosNovos: req.body, extra: { controleId: req.params.id } });

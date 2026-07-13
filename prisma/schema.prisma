@@ -19,6 +19,7 @@ enum Papel {
 
 enum Frota {
   buzin
+  meli
   lbm
   meli_buzin
   meli_lbm
@@ -58,6 +59,8 @@ model Usuario {
   exclusoes         ExclusaoVale[]
   auditoriasFeitas  Auditoria[]
   financeiros       ControleFinanceiro[] @relation("FinanceiroUsuario")
+  valesFixos        ValeFixo[]
+  levantamentos     Levantamento[]
 
   @@map("usuarios")
 }
@@ -77,7 +80,9 @@ model Motorista {
   categoria    CategoriaMotorista
   criadoEm     DateTime           @default(now())
   atualizadoEm DateTime           @updatedAt
-  excluido     Boolean            @default(false)
+  excluido          Boolean            @default(false)
+  dataDesligamento   DateTime?
+  descricao          String?
 
   solicitacoes       Solicitacao[]
   exclusoes          ExclusaoVale[]
@@ -88,6 +93,7 @@ model Motorista {
   auditorias         Auditoria[]
   afastamentos       Afastamento[]
   abandonos          Abandono[]
+  valesFixos         ValeFixo[]
 
   @@map("motoristas")
 }
@@ -134,10 +140,13 @@ model Solicitacao {
   motoristaId   String
   placa         String?
   valor         Decimal           @db.Decimal(10, 2)
-  liberado      Decimal?          @db.Decimal(10, 2)
-  status        StatusSolicitacao @default(pendente)
+  liberado           Decimal?          @db.Decimal(10, 2)
+  liberadoExportado  Decimal           @default(0) @db.Decimal(10, 2)
+  status             StatusSolicitacao @default(pendente)
   dataPagamento DateTime?
   realizadoPor  String?
+  prioridade    Boolean   @default(false)
+  observacao    String?
   criadoEm     DateTime          @default(now())
   atualizadoEm  DateTime          @updatedAt
 
@@ -259,7 +268,8 @@ model ControleFinanceiro {
   valor           Decimal      @db.Decimal(10, 2)
   valorDescontado Decimal      @db.Decimal(10, 2)
   numeroAcerto    String
-  mesDesconto     String
+  numeroVale      String?
+  mesDesconto     String?
   observacao      String?
   criadoEm       DateTime     @default(now())
   atualizadoEm   DateTime     @updatedAt
@@ -299,6 +309,39 @@ model Auditoria {
   criadoEm    DateTime @default(now())
 
   @@map("auditorias")
+}
+
+model ValeFixo {
+  id            String    @id @default(uuid())
+  motorista     Motorista @relation(fields: [motoristaId], references: [id])
+  motoristaId   String
+  dataPagamento DateTime
+  valor         Decimal   @db.Decimal(10, 2)
+  exportado     Boolean   @default(false)
+  usuarioId     String
+  usuario       Usuario   @relation(fields: [usuarioId], references: [id])
+  criadoEm     DateTime  @default(now())
+  atualizadoEm  DateTime  @updatedAt
+
+  @@map("vales_fixos")
+}
+
+model Levantamento {
+  id                 String   @id @default(uuid())
+  mes                String   @unique
+  motoristasFechados Int
+  previa             Decimal  @db.Decimal(10, 2)
+  saldo              Decimal  @db.Decimal(10, 2)
+  salario            Decimal  @db.Decimal(10, 2)
+  quinzena           Decimal  @db.Decimal(10, 2)
+  inssIrpf           Decimal  @db.Decimal(10, 2)
+  observacao         String?
+  usuarioId          String?
+  usuario            Usuario? @relation(fields: [usuarioId], references: [id])
+  criadoEm           DateTime @default(now())
+  atualizadoEm       DateTime @updatedAt
+
+  @@map("levantamentos")
 }
 
 model Notificacao {
