@@ -12,7 +12,7 @@ const permissoes = {
   agendamentos:{ leitura: ['admin','guiche'], escrita: ['admin','guiche'] },
   financeiro:  { leitura: ['admin','acertador'], escrita: ['admin','acertador'] },
   tipos:       { leitura: ['admin','guiche','acertador','dgp','financeiro'], escrita: ['admin','guiche','acertador','dgp','financeiro'] },
-  levantamentos: { leitura: ['admin'], escrita: ['admin'] },
+  levantamentos: { leitura: ['admin','guiche','acertador','dgp','financeiro'], escrita: ['admin','financeiro'] },
 };
 
 async function autenticar(req, res, next) {

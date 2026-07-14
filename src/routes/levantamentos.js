@@ -23,7 +23,23 @@ router.post('/', autorizar('levantamentos', 'escrita'), async (req, res) => {
       return res.status(400).json({ error: 'Campos obrigatórios ausentes' });
     }
     const existente = await prisma.levantamento.findUnique({ where: { mes } });
-    if (existente) return res.status(409).json({ error: 'Já existe um levantamento para este mês' });
+    if (existente) {
+      // Acumula os valores no registro existente
+      const levantamento = await prisma.levantamento.update({
+        where: { mes },
+        data: {
+          motoristasFechados: existente.motoristasFechados + parseInt(motoristasFechados),
+          previa:   { increment: parseFloat(previa) },
+          saldo:    { increment: parseFloat(saldo) },
+          salario:  { increment: parseFloat(salario) },
+          quinzena: { increment: parseFloat(quinzena) },
+          inssIrpf: { increment: parseFloat(inssIrpf) },
+          observacao: observacao || existente.observacao,
+        },
+        include: { usuario: { select: { id: true, nome: true } } },
+      });
+      return res.json(levantamento);
+    }
     const levantamento = await prisma.levantamento.create({
       data: {
         mes,
