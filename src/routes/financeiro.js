@@ -54,6 +54,10 @@ router.post('/', autorizar('financeiro', 'escrita'), async (req, res) => {
     }
     const { motoristaId, tipoDescontoId, mesDesconto, numeroAcerto, numeroVale, valor, valorDescontado, observacao } = req.body;
     if (!motoristaId || !tipoDescontoId || !valor) return res.status(400).json({ error: 'Campos obrigatórios ausentes' });
+    if (numeroVale) {
+      const existente = await prisma.controleFinanceiro.findFirst({ where: { numeroVale, usuarioId } });
+      if (existente) return res.status(409).json({ error: `Vale ${numeroVale} já importado`, duplicado: true });
+    }
     const item = await prisma.controleFinanceiro.create({
       data: {
         motoristaId,

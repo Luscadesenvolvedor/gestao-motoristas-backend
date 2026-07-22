@@ -12,7 +12,7 @@ const permissoes = {
   agendamentos:{ leitura: ['admin','guiche'], escrita: ['admin','guiche'] },
   financeiro:  { leitura: ['admin','acertador'], escrita: ['admin','acertador'] },
   tipos:       { leitura: ['admin','guiche','acertador','dgp','financeiro'], escrita: ['admin','guiche','acertador','dgp','financeiro'] },
-  levantamentos: { leitura: ['admin','guiche','acertador','dgp','financeiro'], escrita: ['admin','financeiro'] },
+  levantamentos: { leitura: ['admin','guiche','acertador','dgp','financeiro','levantamentos'], escrita: ['admin','financeiro'] },
 };
 
 async function autenticar(req, res, next) {
@@ -25,7 +25,7 @@ async function autenticar(req, res, next) {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const usuario = await prisma.usuario.findUnique({
       where: { id: decoded.id },
-      select: { id: true, nome: true, email: true, papel: true, ativo: true, perfilAgendamento: true, perfilFinanceiro: true }
+      select: { id: true, nome: true, email: true, papel: true, ativo: true, perfilAgendamento: true, perfilFinanceiro: true, permissoes: true }
     });
     if (!usuario || !usuario.ativo) return res.status(401).json({ error: 'Usuario invalido' });
     req.usuario = usuario;
@@ -40,6 +40,15 @@ function autorizar(recurso, tipo) {
   tipo = tipo || 'leitura';
   return function(req, res, next) {
     var papel = req.usuario && req.usuario.papel;
+    // Admin sempre tem acesso
+    if (papel === 'admin') return next();
+    // Permissões customizadas têm prioridade sobre o papel
+    var permsCustom = req.usuario && req.usuario.permissoes;
+    if (permsCustom && Array.isArray(permsCustom[tipo]) && permsCustom[tipo].length > 0) {
+      if (permsCustom[tipo].indexOf(recurso) !== -1) return next();
+      return res.status(403).json({ error: 'Acesso negado para este perfil' });
+    }
+    // Fallback: permissões por papel
     var permitidos = (permissoes[recurso] && permissoes[recurso][tipo]) || [];
     if (permitidos.indexOf(papel) === -1) {
       return res.status(403).json({ error: 'Acesso negado para este perfil' });

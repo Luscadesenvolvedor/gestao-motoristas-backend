@@ -15,6 +15,7 @@ enum Papel {
   acertador
   dgp
   financeiro
+  levantamentos
 }
 
 enum Frota {
@@ -328,19 +329,19 @@ model ValeFixo {
 
 model Levantamento {
   id                 String   @id @default(uuid())
-  mes                String   @unique
-  motoristasFechados Int
-  previa             Decimal  @db.Decimal(10, 2)
-  saldo              Decimal  @db.Decimal(10, 2)
-  salario            Decimal  @db.Decimal(10, 2)
-  quinzena           Decimal  @db.Decimal(10, 2)
-  inssIrpf           Decimal  @db.Decimal(10, 2)
+  mes                String
+  tipo               String   @default("FROTA")
+  motoristasFechados Int      @default(0)
+  previa             Decimal  @default(0) @db.Decimal(10, 2)
+  saldo              Decimal  @default(0) @db.Decimal(10, 2)
+  custoFolha         Decimal  @default(0) @db.Decimal(10, 2)
   observacao         String?
   usuarioId          String?
   usuario            Usuario? @relation(fields: [usuarioId], references: [id])
   criadoEm           DateTime @default(now())
   atualizadoEm       DateTime @updatedAt
 
+  @@unique([mes, tipo])
   @@map("levantamentos")
 }
 

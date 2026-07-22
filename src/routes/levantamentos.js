@@ -10,7 +10,7 @@ router.get('/', async (req, res) => {
   try {
     const levantamentos = await prisma.levantamento.findMany({
       include: { usuario: { select: { id: true, nome: true } } },
-      orderBy: { mes: 'desc' },
+      orderBy: [{ mes: 'desc' }, { tipo: 'asc' }],
     });
     res.json(levantamentos);
   } catch (err) { console.error(err); res.status(500).json({ error: 'Erro ao buscar levantamentos' }); }
@@ -18,22 +18,19 @@ router.get('/', async (req, res) => {
 
 router.post('/', autorizar('levantamentos', 'escrita'), async (req, res) => {
   try {
-    const { mes, motoristasFechados, previa, saldo, salario, quinzena, inssIrpf, observacao } = req.body;
-    if (!mes || motoristasFechados === undefined || previa === undefined || saldo === undefined || salario === undefined || quinzena === undefined || inssIrpf === undefined) {
-      return res.status(400).json({ error: 'Campos obrigatórios ausentes' });
-    }
-    const existente = await prisma.levantamento.findUnique({ where: { mes } });
+    const { mes, tipo = 'FROTA', motoristasFechados, previa, saldo, custoFolha, observacao } = req.body;
+    if (!mes) return res.status(400).json({ error: 'Mês é obrigatório' });
+    const n = v => parseFloat(v) || 0;
+    const i = v => parseInt(v) || 0;
+    const existente = await prisma.levantamento.findFirst({ where: { mes, tipo } });
     if (existente) {
-      // Acumula os valores no registro existente
       const levantamento = await prisma.levantamento.update({
-        where: { mes },
+        where: { id: existente.id },
         data: {
-          motoristasFechados: existente.motoristasFechados + parseInt(motoristasFechados),
-          previa:   { increment: parseFloat(previa) },
-          saldo:    { increment: parseFloat(saldo) },
-          salario:  { increment: parseFloat(salario) },
-          quinzena: { increment: parseFloat(quinzena) },
-          inssIrpf: { increment: parseFloat(inssIrpf) },
+          motoristasFechados: existente.motoristasFechados + i(motoristasFechados),
+          previa:      { increment: n(previa) },
+          saldo:       { increment: n(saldo) },
+          custoFolha:  { increment: n(custoFolha) },
           observacao: observacao || existente.observacao,
         },
         include: { usuario: { select: { id: true, nome: true } } },
@@ -43,12 +40,11 @@ router.post('/', autorizar('levantamentos', 'escrita'), async (req, res) => {
     const levantamento = await prisma.levantamento.create({
       data: {
         mes,
-        motoristasFechados: parseInt(motoristasFechados),
-        previa: parseFloat(previa),
-        saldo: parseFloat(saldo),
-        salario: parseFloat(salario),
-        quinzena: parseFloat(quinzena),
-        inssIrpf: parseFloat(inssIrpf),
+        tipo,
+        motoristasFechados: i(motoristasFechados),
+        previa:     n(previa),
+        saldo:      n(saldo),
+        custoFolha: n(custoFolha),
         observacao: observacao || null,
         usuarioId: req.usuario.id,
       },
@@ -60,17 +56,16 @@ router.post('/', autorizar('levantamentos', 'escrita'), async (req, res) => {
 
 router.put('/:id', autorizar('levantamentos', 'escrita'), async (req, res) => {
   try {
-    const { mes, motoristasFechados, previa, saldo, salario, quinzena, inssIrpf, observacao } = req.body;
+    const { mes, tipo, motoristasFechados, previa, saldo, custoFolha, observacao } = req.body;
     const levantamento = await prisma.levantamento.update({
       where: { id: req.params.id },
       data: {
         mes,
-        motoristasFechados: parseInt(motoristasFechados),
-        previa: parseFloat(previa),
-        saldo: parseFloat(saldo),
-        salario: parseFloat(salario),
-        quinzena: parseFloat(quinzena),
-        inssIrpf: parseFloat(inssIrpf),
+        ...(tipo && { tipo }),
+        motoristasFechados: parseInt(motoristasFechados) || 0,
+        previa:     parseFloat(previa)     || 0,
+        saldo:      parseFloat(saldo)      || 0,
+        custoFolha: parseFloat(custoFolha) || 0,
         observacao: observacao || null,
       },
       include: { usuario: { select: { id: true, nome: true } } },

@@ -12,7 +12,7 @@ router.get('/', async (req, res) => {
   const usuarios = await prisma.usuario.findMany({
     select: {
       id: true, nome: true, email: true, papel: true, ativo: true, criadoEm: true,
-      perfilAgendamento: true, perfilFinanceiro: true,
+      perfilAgendamento: true, perfilFinanceiro: true, permissoes: true,
       auditoriasFeitas: req.usuario.papel === 'admin'
         ? { orderBy: { criadoEm: 'desc' }, take: 1, include: { usuario: { select: { nome: true } } } }
         : false
