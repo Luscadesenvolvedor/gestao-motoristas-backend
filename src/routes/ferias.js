@@ -171,10 +171,10 @@ router.delete('/abandonos/:id', autorizar('ferias', 'escrita'), async (req, res)
 });
 
 
-// GET /ferias/alertas-bulk?ids=id1,id2,...
-router.get('/alertas-bulk', async (req, res) => {
+// POST /ferias/alertas-bulk  { ids: [...] }
+router.post('/alertas-bulk', async (req, res) => {
   try {
-    const ids = (req.query.ids || '').split(',').filter(Boolean);
+    const ids = Array.isArray(req.body.ids) ? req.body.ids : (req.body.ids || '').split(',').filter(Boolean);
     if (!ids.length) return res.json({});
     const hoje = new Date();
 
