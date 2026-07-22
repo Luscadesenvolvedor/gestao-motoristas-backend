@@ -11,8 +11,10 @@ app.use(helmet());
 // CORS: permite apenas origens listadas em ALLOWED_ORIGINS
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
   .split(',')
-  .map(o => o.trim())
+  .map(o => o.trim().replace(/^["']|["']$/g, ''))  // remove aspas extras
   .filter(Boolean);
+
+console.log('[CORS] Origens permitidas:', allowedOrigins);
 
 app.use(cors({
   origin: function(origin, callback) {
