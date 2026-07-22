@@ -18,6 +18,7 @@ app.use(cors({
   origin: function(origin, callback) {
     if (!origin) return callback(null, true);
     if (allowedOrigins.length === 0 || allowedOrigins.includes(origin)) return callback(null, true);
+    console.warn('[CORS] Origem bloqueada:', origin, '| Permitidas:', allowedOrigins);
     return callback(null, false);
   },
   credentials: true,
