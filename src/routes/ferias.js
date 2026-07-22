@@ -171,10 +171,15 @@ router.delete('/abandonos/:id', autorizar('ferias', 'escrita'), async (req, res)
 });
 
 
-// POST /ferias/alertas-bulk  { ids: [...] }
-router.post('/alertas-bulk', async (req, res) => {
+// GET ou POST /ferias/alertas-bulk
+async function handleAlertasBulk(req, res) {
   try {
-    const ids = Array.isArray(req.body.ids) ? req.body.ids : (req.body.ids || '').split(',').filter(Boolean);
+    let ids = [];
+    if (req.method === 'POST') {
+      ids = Array.isArray(req.body.ids) ? req.body.ids : (req.body.ids || '').split(',').filter(Boolean);
+    } else {
+      ids = (req.query.ids || '').split(',').filter(Boolean);
+    }
     if (!ids.length) return res.json({});
     const hoje = new Date();
 
@@ -207,6 +212,9 @@ router.post('/alertas-bulk', async (req, res) => {
     console.error(err);
     res.status(500).json({ error: 'Erro ao buscar alertas' });
   }
-});
+}
+
+router.get('/alertas-bulk', handleAlertasBulk);
+router.post('/alertas-bulk', handleAlertasBulk);
 
 module.exports = router;
