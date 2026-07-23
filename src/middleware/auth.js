@@ -25,7 +25,7 @@ async function autenticar(req, res, next) {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const usuario = await prisma.usuario.findUnique({
       where: { id: decoded.id },
-      select: { id: true, nome: true, email: true, papel: true, ativo: true, perfilAgendamento: true, perfilFinanceiro: true, permissoes: true }
+      select: { id: true, nome: true, email: true, papel: true, ativo: true, setor: true, perfilAgendamento: true, perfilFinanceiro: true, permissoes: true }
     });
     if (!usuario || !usuario.ativo) return res.status(401).json({ error: 'Usuario invalido' });
     req.usuario = usuario;
@@ -57,4 +57,14 @@ function autorizar(recurso, tipo) {
   };
 }
 
-module.exports = { autenticar, autorizar };
+// Bloqueia acesso a rotas de abastecimento para usuários de outros setores
+// Admins sempre passam
+function exigirSetor(setor) {
+  return function(req, res, next) {
+    if (req.usuario.papel === 'admin') return next();
+    if (req.usuario.setor === setor) return next();
+    return res.status(403).json({ error: 'Acesso restrito ao setor ' + setor });
+  };
+}
+
+module.exports = { autenticar, autorizar, exigirSetor };

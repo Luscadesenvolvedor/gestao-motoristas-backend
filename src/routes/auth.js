@@ -26,14 +26,14 @@ router.post('/login', loginLimiter, async (req, res) => {
   const { email, senha } = req.body;
   if (!email || !senha) return res.status(400).json({ error: 'Email e senha obrigatorios' });
   try {
-    const usuario = await prisma.usuario.findUnique({ where: { email }, select: { id: true, nome: true, email: true, senha: true, papel: true, ativo: true, permissoes: true, perfilAgendamento: true, perfilFinanceiro: true } });
+    const usuario = await prisma.usuario.findUnique({ where: { email }, select: { id: true, nome: true, email: true, senha: true, papel: true, ativo: true, setor: true, permissoes: true, perfilAgendamento: true, perfilFinanceiro: true } });
     if (!usuario || !usuario.ativo) return res.status(401).json({ error: 'Credenciais invalidas' });
     const senhaOk = await bcrypt.compare(senha, usuario.senha);
     if (!senhaOk) return res.status(401).json({ error: 'Credenciais invalidas' });
     const token = jwt.sign({ id: usuario.id, papel: usuario.papel }, process.env.JWT_SECRET, { expiresIn: '7d' });
     res.json({
       token,
-      usuario: { id: usuario.id, nome: usuario.nome, email: usuario.email, papel: usuario.papel, permissoes: usuario.permissoes }
+      usuario: { id: usuario.id, nome: usuario.nome, email: usuario.email, papel: usuario.papel, setor: usuario.setor || 'acerto', permissoes: usuario.permissoes }
     });
   } catch (err) {
     console.error('Erro no login:', err);

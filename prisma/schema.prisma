@@ -51,6 +51,7 @@ model Usuario {
   senha     String
   papel     Papel
   ativo     Boolean  @default(true)
+  setor     String   @default("acerto")
   permissoes Json?
   criadoEm  DateTime @default(now())
   perfilAgendamento Int?
@@ -60,8 +61,11 @@ model Usuario {
   exclusoes         ExclusaoVale[]
   auditoriasFeitas  Auditoria[]
   financeiros       ControleFinanceiro[] @relation("FinanceiroUsuario")
-  valesFixos        ValeFixo[]
-  levantamentos     Levantamento[]
+  valesFixos         ValeFixo[]
+  levantamentos      Levantamento[]
+  notasAbastecimento NotaAbastecimento[]
+  faturasAbastecimento FaturaAbastecimento[] @relation("FaturasAbastecimento")
+  lavagens             Lavagem[]
 
   @@map("usuarios")
 }
@@ -272,14 +276,28 @@ model ControleFinanceiro {
   numeroVale      String?
   mesDesconto     String?
   observacao      String?
+  abonado         Boolean      @default(false)
+  abonadoPor      String?
   criadoEm       DateTime     @default(now())
   atualizadoEm   DateTime     @updatedAt
   usuarioId       String?
 
-  auditorias Auditoria[]
-  usuario    Usuario? @relation("FinanceiroUsuario", fields: [usuarioId], references: [id])
+  auditorias        Auditoria[]
+  usuario           Usuario? @relation("FinanceiroUsuario", fields: [usuarioId], references: [id])
+  parcelasDesconto  ParcelaDesconto[]
 
   @@map("controle_financeiro")
+}
+
+model ParcelaDesconto {
+  id                   String             @id @default(uuid())
+  controleFinanceiro   ControleFinanceiro @relation(fields: [controleFinanceiroId], references: [id], onDelete: Cascade)
+  controleFinanceiroId String
+  mes                  String
+  valor                Decimal            @db.Decimal(10, 2)
+  criadoEm             DateTime           @default(now())
+
+  @@map("parcelas_desconto")
 }
 
 model Auditoria {
@@ -343,6 +361,157 @@ model Levantamento {
 
   @@unique([mes, tipo])
   @@map("levantamentos")
+}
+
+model FornecedorAbastecimento {
+  id          String   @id @default(uuid())
+  razaoSocial String
+  cnpj        String
+  responsavel String?
+  contato     String?
+  tipoServico    String   // 'lavagem' | 'estacionamento'
+  frota          String   @default("buzin") // 'buzin' | 'lbm'
+  formaPagamento String   @default("pix") // 'pix' | 'boleto'
+  chavePix       String?
+  numeroOC       String?
+  ativo       Boolean  @default(true)
+  criadoEm   DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  faturas FaturaAbastecimento[]
+
+  @@map("fornecedores_abastecimento")
+}
+
+model FaturaAbastecimento {
+  id             String                  @id @default(uuid())
+  fornecedor     FornecedorAbastecimento @relation(fields: [fornecedorId], references: [id])
+  fornecedorId   String
+  numero         String
+  valor          Decimal                 @db.Decimal(10, 2)
+  dataVencimento DateTime                @db.Date
+  dataPagamento  DateTime?               @db.Date
+  status         String                  @default("pendente")
+  arquivoNome    String?
+  arquivoBase64  String?
+  arquivoTipo    String?
+  observacao     String?
+  usuarioId      String
+  usuario        Usuario                 @relation("FaturasAbastecimento", fields: [usuarioId], references: [id])
+  criadoEm      DateTime                @default(now())
+  atualizadoEm  DateTime                @updatedAt
+
+  notasFiscais NotaFiscalAbastecimento[]
+
+  @@map("faturas_abastecimento")
+}
+
+model NotaFiscalAbastecimento {
+  id            String              @id @default(uuid())
+  fatura        FaturaAbastecimento @relation(fields: [faturaId], references: [id], onDelete: Cascade)
+  faturaId      String
+  numero        String
+  valor         Decimal             @db.Decimal(10, 2)
+  arquivoNome   String?
+  arquivoBase64 String?
+  arquivoTipo   String?
+  criadoEm     DateTime            @default(now())
+
+  @@map("notas_fiscais_abastecimento")
+}
+
+model NotaAbastecimento {
+  id             String   @id @default(uuid())
+  tipo           String   // 'nota' | 'remessa'
+  numero         String
+  fornecedor     String
+  descricao      String?
+  valor          Decimal  @db.Decimal(10, 2)
+  dataEmissao    DateTime @db.Date
+  dataVencimento DateTime @db.Date
+  dataPagamento  DateTime? @db.Date
+  status         String   @default("pendente") // 'pendente' | 'pago' | 'vencido'
+  observacao     String?
+  usuarioId      String
+  usuario        Usuario  @relation(fields: [usuarioId], references: [id])
+  criadoEm      DateTime @default(now())
+  atualizadoEm  DateTime @updatedAt
+
+  @@map("notas_abastecimento")
+}
+
+model TipoServico {
+  id                 String   @id @default(uuid())
+  nome               String   @unique
+  requerTipoCaminhao Boolean  @default(false)
+  ativo              Boolean  @default(true)
+  criadoEm           DateTime @default(now())
+
+  precos   PrecoFornecedorServico[]
+  lavagens Lavagem[]
+
+  @@map("tipos_servico_lavagem")
+}
+
+model TipoCaminhao {
+  id       String   @id @default(uuid())
+  nome     String   @unique
+  ativo    Boolean  @default(true)
+  criadoEm DateTime @default(now())
+
+  precos   PrecoFornecedorServico[]
+  lavagens Lavagem[]
+
+  @@map("tipos_caminhao_lavagem")
+}
+
+model FornecedorLavagem {
+  id           String   @id @default(uuid())
+  razaoSocial  String
+  cnpj         String?
+  contato      String?
+  ativo        Boolean  @default(true)
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  precos   PrecoFornecedorServico[]
+  lavagens Lavagem[]
+
+  @@map("fornecedores_lavagem")
+}
+
+model PrecoFornecedorServico {
+  id             String            @id @default(uuid())
+  fornecedor     FornecedorLavagem @relation(fields: [fornecedorId], references: [id], onDelete: Cascade)
+  fornecedorId   String
+  tipoServico    TipoServico       @relation(fields: [tipoServicoId], references: [id])
+  tipoServicoId  String
+  tipoCaminhao   TipoCaminhao?     @relation(fields: [tipoCaminhaoId], references: [id])
+  tipoCaminhaoId String?           // null = preço único; preenchido = preço por tipo de caminhão
+
+  valor Decimal @db.Decimal(10, 2)
+
+  @@map("precos_fornecedor_servico")
+}
+
+model Lavagem {
+  id             String            @id @default(uuid())
+  placa          String
+  frota          String
+  tipoServico    TipoServico       @relation(fields: [tipoServicoId], references: [id])
+  tipoServicoId  String
+  tipoCaminhao   TipoCaminhao?     @relation(fields: [tipoCaminhaoId], references: [id])
+  tipoCaminhaoId String?
+  fornecedor     FornecedorLavagem @relation(fields: [fornecedorId], references: [id])
+  fornecedorId   String
+  valor          Decimal           @db.Decimal(10, 2)
+  data           DateTime          @db.Date
+  observacao     String?
+  usuarioId      String
+  usuario        Usuario           @relation(fields: [usuarioId], references: [id])
+  criadoEm       DateTime          @default(now())
+
+  @@map("lavagens")
 }
 
 model Notificacao {

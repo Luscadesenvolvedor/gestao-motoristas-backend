@@ -16,10 +16,11 @@ router.get('/', async (req, res) => {
 
     if (req.usuario.papel === 'acertador') {
       where.usuarioId = req.usuario.id;
-    } else if (perfil) {
+    } else if (perfil && perfil !== 'todos') {
       const u = await prisma.usuario.findFirst({ where: { perfilFinanceiro: parseInt(perfil) } });
       if (u) where.usuarioId = u.id;
     }
+    // admin sem perfil = retorna todos
 
     if (motoristaId) where.motoristaId = motoristaId;
     if (mes) where.mesDesconto = mes;
@@ -36,10 +37,70 @@ router.get('/', async (req, res) => {
       },
       orderBy: { criadoEm: 'desc' }
     });
-    res.json(itens);
+
+    // Busca parcelas separadamente — não quebra se a tabela ainda não existir
+    let parcelasMap = {};
+    try {
+      const parcelas = await prisma.parcelaDesconto.findMany({
+        where: { controleFinanceiroId: { in: itens.map(i => i.id) } },
+        orderBy: { mes: 'asc' }
+      });
+      parcelas.forEach(p => {
+        if (!parcelasMap[p.controleFinanceiroId]) parcelasMap[p.controleFinanceiroId] = [];
+        parcelasMap[p.controleFinanceiroId].push(p);
+      });
+    } catch { /* tabela ainda não existe — retorna lista sem parcelas */ }
+
+    const resultado = itens.map(i => ({ ...i, parcelasDesconto: parcelasMap[i.id] || [] }));
+    res.json(resultado);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao buscar registros financeiros' });
+  }
+});
+
+// POST /api/financeiro/:id/parcelas
+router.post('/:id/parcelas', autorizar('financeiro', 'escrita'), async (req, res) => {
+  try {
+    const { mes, valor } = req.body;
+    if (!mes || !valor) return res.status(400).json({ error: 'Mês e valor são obrigatórios' });
+
+    const parcela = await prisma.parcelaDesconto.create({
+      data: { controleFinanceiroId: req.params.id, mes, valor: parseFloat(valor) }
+    });
+
+    // Atualiza valorDescontado no registro pai com a soma de todas as parcelas
+    const todas = await prisma.parcelaDesconto.findMany({ where: { controleFinanceiroId: req.params.id } });
+    const somaTotal = todas.reduce((s, p) => s + parseFloat(p.valor), 0);
+    await prisma.controleFinanceiro.update({
+      where: { id: req.params.id },
+      data: { valorDescontado: somaTotal }
+    });
+
+    res.status(201).json(parcela);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao adicionar parcela' });
+  }
+});
+
+// DELETE /api/financeiro/:id/parcelas/:parcelaId
+router.delete('/:id/parcelas/:parcelaId', autorizar('financeiro', 'escrita'), async (req, res) => {
+  try {
+    await prisma.parcelaDesconto.delete({ where: { id: req.params.parcelaId } });
+
+    // Recalcula valorDescontado
+    const restantes = await prisma.parcelaDesconto.findMany({ where: { controleFinanceiroId: req.params.id } });
+    const somaTotal = restantes.reduce((s, p) => s + parseFloat(p.valor), 0);
+    await prisma.controleFinanceiro.update({
+      where: { id: req.params.id },
+      data: { valorDescontado: somaTotal }
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao remover parcela' });
   }
 });
 
@@ -53,7 +114,7 @@ router.post('/', autorizar('financeiro', 'escrita'), async (req, res) => {
       if (alvo) usuarioId = alvo.id;
     }
     const { motoristaId, tipoDescontoId, mesDesconto, numeroAcerto, numeroVale, valor, valorDescontado, observacao } = req.body;
-    if (!motoristaId || !tipoDescontoId || !valor) return res.status(400).json({ error: 'Campos obrigatórios ausentes' });
+    if (!motoristaId || !tipoDescontoId || valor === undefined || valor === null || valor === '') return res.status(400).json({ error: 'Campos obrigatórios ausentes' });
     if (numeroVale) {
       const existente = await prisma.controleFinanceiro.findFirst({ where: { numeroVale, usuarioId } });
       if (existente) return res.status(409).json({ error: `Vale ${numeroVale} já importado`, duplicado: true });
@@ -62,10 +123,9 @@ router.post('/', autorizar('financeiro', 'escrita'), async (req, res) => {
       data: {
         motoristaId,
         tipoDescontoId,
-        mesDesconto,
+        mesDesconto: mesDesconto || null,
         numeroAcerto: numeroAcerto || '',
         numeroVale: numeroVale || null,
-        mesDesconto: mesDesconto || null,
         valor: parseFloat(valor),
         valorDescontado: parseFloat(valorDescontado || 0),
         observacao: observacao || null,
@@ -109,6 +169,24 @@ router.put('/:id', autorizar('financeiro', 'escrita'), async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erro ao atualizar registro financeiro' });
+  }
+});
+
+// PATCH /api/financeiro/:id/abonar
+router.patch('/:id/abonar', autorizar('financeiro', 'escrita'), async (req, res) => {
+  try {
+    const { abonadoPor } = req.body;
+    const item = await prisma.controleFinanceiro.findUnique({ where: { id: req.params.id } });
+    if (!item) return res.status(404).json({ error: 'Registro não encontrado' });
+    const updated = await prisma.controleFinanceiro.update({
+      where: { id: req.params.id },
+      data: { abonado: true, abonadoPor: abonadoPor || null, valorDescontado: item.valor }
+    });
+    await registrarAuditoria({ usuarioId: req.usuario.id, acao: 'abonou', tabela: 'financeiro', registroId: req.params.id, dadosNovos: { abonadoPor }, extra: { controleId: req.params.id } });
+    res.json(updated);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao abonar registro' });
   }
 });
 
