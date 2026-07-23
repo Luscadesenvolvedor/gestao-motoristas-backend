@@ -157,15 +157,7 @@ async function runMigrations() {
     console.error('Migration abonado erro:', e.message);
   }
 
-  // ── Módulo de Lavagens/Serviços — recria tabelas com nova estrutura ──
-  try {
-    await _prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS "lavagens" CASCADE;`);
-    await _prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS "precos_lavagem" CASCADE;`);
-    await _prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS "precos_fornecedor_servico" CASCADE;`);
-    await _prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS "tipos_caminhao_lavagem" CASCADE;`);
-    await _prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS "tipos_servico_lavagem" CASCADE;`);
-    console.log('Migration lavagens DROP antigas: OK');
-  } catch (e) { console.error('Migration DROP lavagens erro:', e.message); }
+  // ── Módulo de Lavagens/Serviços ──
 
   // Tipos de serviço (Lavagem, Lubrificação, etc.)
   try {
