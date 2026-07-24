@@ -4,8 +4,8 @@
   "main": "src/server.js",
   "scripts": {
     "dev": "nodemon src/server.js",
-    "start": "prisma migrate deploy && prisma generate && node src/server.js",
-    "build": "echo ok",
+    "start": "node src/server.js",
+    "build": "prisma migrate deploy && prisma generate",
     "seed": "node prisma/seed.js"
   },
   "engines": {
