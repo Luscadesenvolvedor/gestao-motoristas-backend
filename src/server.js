@@ -158,23 +158,12 @@ async function runMigrations() {
   }
 
   // ── Módulo de Lavagens/Serviços ──
-  // Se a tabela lavagens existir com estrutura antiga (sem tipoServicoId), dropa tudo e recria
+  // Garante colunas Phase 2 na tabela lavagens (migração incremental)
   try {
-    const col = await _prisma.$queryRawUnsafe(`
-      SELECT column_name FROM information_schema.columns
-      WHERE table_name = 'lavagens' AND column_name = 'tipoServicoId'
-    `);
-    if (col.length === 0) {
-      console.log('Detectada estrutura antiga de lavagens — recriando tabelas...');
-      await _prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS "lavagens" CASCADE;`);
-      await _prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS "precos_fornecedor_servico" CASCADE;`);
-      await _prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS "precos_lavagem" CASCADE;`);
-      await _prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS "fornecedores_lavagem" CASCADE;`);
-      await _prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS "tipos_servico_lavagem" CASCADE;`);
-      await _prisma.$executeRawUnsafe(`DROP TABLE IF EXISTS "tipos_caminhao_lavagem" CASCADE;`);
-      console.log('DROP tabelas antigas: OK');
-    }
-  } catch (e) { /* tabela lavagens não existe ainda, tudo bem */ }
+    await _prisma.$executeRawUnsafe(`ALTER TABLE "lavagens" ADD COLUMN IF NOT EXISTS "tipoServicoId" TEXT;`);
+    await _prisma.$executeRawUnsafe(`ALTER TABLE "lavagens" ALTER COLUMN "tipoCaminhaoId" DROP NOT NULL;`);
+    console.log('Migration lavagens ALTER colunas: OK');
+  } catch (e) { /* tabela pode não existir ainda — será criada abaixo */ }
 
   try {
     await _prisma.$executeRawUnsafe(`
@@ -261,6 +250,55 @@ async function runMigrations() {
     `);
     console.log('Migration lavagens: OK');
   } catch (e) { console.error('lavagens erro:', e.message); }
+
+  // ── Módulo de Médias de Consumo ──
+  try {
+    await _prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "importacoes_consumo" (
+        "id" TEXT NOT NULL,
+        "nomeArquivo" TEXT NOT NULL,
+        "totalRegistros" INTEGER NOT NULL,
+        "periodoInicio" DATE,
+        "periodoFim" DATE,
+        "usuarioId" TEXT NOT NULL,
+        "criadoEm" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT "importacoes_consumo_pkey" PRIMARY KEY ("id"),
+        CONSTRAINT "importacoes_consumo_usuario_fk" FOREIGN KEY ("usuarioId") REFERENCES "usuarios"("id") ON DELETE RESTRICT
+      );
+    `);
+    console.log('Migration importacoes_consumo: OK');
+  } catch (e) { console.error('importacoes_consumo erro:', e.message); }
+
+  try {
+    await _prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "registros_consumo" (
+        "id" TEXT NOT NULL,
+        "importacaoId" TEXT NOT NULL,
+        "data" DATE NOT NULL,
+        "motorista" TEXT NOT NULL,
+        "placa" TEXT,
+        "modelo" TEXT,
+        "conjunto" TEXT,
+        "kmInicial" DECIMAL(12,2),
+        "kmFinal" DECIMAL(12,2),
+        "distancia" DECIMAL(12,2),
+        "posto" TEXT,
+        "cidade" TEXT,
+        "uf" TEXT,
+        "precoLitro" DECIMAL(10,4),
+        "litros" DECIMAL(10,4),
+        "produto" TEXT,
+        "vlrTotal" DECIMAL(10,2),
+        "mediaRealizada" DECIMAL(10,4),
+        "mediaSugerida" DECIMAL(10,4),
+        "percAtingido" TEXT,
+        "gap" DECIMAL(10,4),
+        CONSTRAINT "registros_consumo_pkey" PRIMARY KEY ("id"),
+        CONSTRAINT "registros_consumo_importacao_fk" FOREIGN KEY ("importacaoId") REFERENCES "importacoes_consumo"("id") ON DELETE CASCADE
+      );
+    `);
+    console.log('Migration registros_consumo: OK');
+  } catch (e) { console.error('registros_consumo erro:', e.message); }
 }
 runMigrations();
 
@@ -314,6 +352,7 @@ app.use('/api/tipos-servico-lavagem',  require('./routes/tiposServicoLavagem'));
 app.use('/api/tipos-caminhao-lavagem', require('./routes/tiposCaminhaoLavagem'));
 app.use('/api/fornecedores-lavagem',   require('./routes/fornecedoresLavagem'));
 app.use('/api/lavagens',               require('./routes/lavagens'));
+app.use('/api/medias-consumo',         require('./routes/mediasConsumo'));
 
 app.get('/health', function(req, res) { res.json({ ok: true }); });
 
