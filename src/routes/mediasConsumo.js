@@ -61,6 +61,27 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /api/medias-consumo/meses?importacaoId=X
+router.get('/meses', async (req, res) => {
+  try {
+    const { importacaoId } = req.query;
+    let where = importacaoId ? `WHERE "importacaoId" = $1` : '';
+    const params = importacaoId ? [importacaoId] : [];
+
+    const lista = await prisma.$queryRawUnsafe(`
+      SELECT DISTINCT TO_CHAR("data", 'YYYY-MM') AS mes
+      FROM "registros_consumo"
+      ${where}
+      ORDER BY mes ASC
+    `, ...params);
+
+    res.json(lista.map(r => r.mes));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erro ao buscar meses' });
+  }
+});
+
 // GET /api/medias-consumo/motoristas?importacaoId=X
 router.get('/motoristas', async (req, res) => {
   try {
