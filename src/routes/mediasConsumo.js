@@ -155,7 +155,7 @@ router.get('/resumo-motoristas', async (req, res) => {
     const rows = await prisma.$queryRawUnsafe(`
       SELECT
         r."motorista",
-        STRING_AGG(DISTINCT r."placa", ', ' ORDER BY r."placa") AS "placas",
+        STRING_AGG(DISTINCT r."placa", ', ') AS "placas",
         SUM(r."vlrTotal") AS "totalGasto",
         SUM(CASE WHEN LOWER(r."produto") LIKE '%diesel%' THEN r."distancia" ELSE 0 END) AS "totalKm",
         SUM(CASE WHEN LOWER(r."produto") LIKE '%diesel%' THEN r."litros"    ELSE 0 END) AS "totalLitros",
